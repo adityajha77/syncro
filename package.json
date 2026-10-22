@@ -1,0 +1,26 @@
+{
+  "name": "syncro-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Syncro - Connected Workspace Monorepo",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -p \"[{name}]\" -n \"API,WEB\" -c \"cyan.bold,magenta.bold\" \"npm run dev -w @syncro/backend\" \"npm run dev -w @syncro/frontend\"",
+    "dev:backend": "npm run dev -w @syncro/backend",
+    "dev:frontend": "npm run dev -w @syncro/frontend",
+    "build": "npm run build -w @syncro/backend && npm run build -w @syncro/frontend",
+    "build:backend": "npm run build -w @syncro/backend",
+    "build:frontend": "npm run build -w @syncro/frontend",
+    "db:migrate": "npm run db:migrate -w @syncro/backend",
+    "db:studio": "npm run db:studio -w @syncro/backend",
+    "db:generate": "npm run db:generate -w @syncro/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
