@@ -47,14 +47,14 @@ export const ComingSoonPage: React.FC<ComingSoonPageProps> = ({
         {/* Small Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono tracking-tight bg-zinc-100 dark:bg-zinc-950 border border-black/10 dark:border-white/10 text-zinc-600 dark:text-zinc-400 shadow-sm">
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>EARLY ACCESS // SPRINT ROADMAP</span>
+          <span>{title.toUpperCase()} // EARLY ACCESS SPRINT</span>
         </div>
 
-        {/* Big Faded Stylish Typography: COMING SOON */}
+        {/* Big Faded Stylish Typography: Always "COMING SOON" */}
         <div className="space-y-3">
           <h1 className="text-6xl sm:text-8xl md:text-9xl font-black tracking-tighter uppercase select-none leading-none">
             <span className="text-transparent bg-clip-text bg-gradient-to-b from-zinc-800 via-zinc-400 to-zinc-200 dark:from-white dark:via-zinc-400 dark:to-zinc-800 opacity-90">
-              {title}
+              COMING SOON
             </span>
           </h1>
 

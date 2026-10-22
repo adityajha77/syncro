@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, 
   Clock, 
@@ -213,6 +213,13 @@ export const RoadmapPage: React.FC = () => {
   const [openPhases, setOpenPhases] = useState<Record<string, boolean>>({
     'phase-1': true,
   });
+
+  // Always reset scroll to top on mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
 
   const togglePhase = (id: string) => {
     setOpenPhases((prev) => ({
