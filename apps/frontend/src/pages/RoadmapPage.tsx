@@ -4,7 +4,9 @@ import {
   Clock, 
   ChevronDown, 
   Calendar, 
-  ShieldCheck
+  ShieldCheck,
+  ArrowUpRight,
+  GitBranch
 } from 'lucide-react';
 
 interface TaskDetail {
@@ -21,7 +23,7 @@ interface Phase {
   number: string;
   title: string;
   subtitle: string;
-  status: 'COMPLETED' | 'IN_PROGRESS' | 'PLANNED';
+  status: 'ACTIVE_SPRINT' | 'IN_PROGRESS' | 'PLANNED';
   badge: string;
   timeframe: string;
   percent: number;
@@ -34,8 +36,8 @@ const PHASES: Phase[] = [
     number: 'PHASE 01',
     title: 'Architecture & Monorepo Foundation',
     subtitle: 'Codebase setup, Express API, Prisma 7 models, WebSocket gateway, and verification',
-    status: 'COMPLETED',
-    badge: '100% COMPLETE • VERIFIED & DEPLOYED',
+    status: 'ACTIVE_SPRINT',
+    badge: 'ACTIVE SPRINT // 100% ARCHITECTURE READY',
     timeframe: 'Week 1',
     percent: 100,
     tasks: [
@@ -94,10 +96,10 @@ const PHASES: Phase[] = [
     number: 'PHASE 02',
     title: 'Collaborative Task Board & Live State',
     subtitle: 'Interactive task board, live database migration, and WebSocket state binding',
-    status: 'IN_PROGRESS',
-    badge: 'ACTIVE SPRINT • IN PROGRESS',
+    status: 'PLANNED',
+    badge: 'UPCOMING // SPRINT 2',
     timeframe: 'Week 2',
-    percent: 40,
+    percent: 30,
     tasks: [
       {
         id: 'p2-1',
@@ -139,7 +141,7 @@ const PHASES: Phase[] = [
     title: 'Universal Activity Feed & Telemetry',
     subtitle: 'Centralized activity stream, filter engine, and workspace health diagnostics',
     status: 'PLANNED',
-    badge: 'SCHEDULED • UPCOMING',
+    badge: 'SCHEDULED // SPRINT 3',
     timeframe: 'Week 3',
     percent: 0,
     tasks: [
@@ -175,7 +177,7 @@ const PHASES: Phase[] = [
     title: 'Autonomous Standup Summaries & Cloud Sync',
     subtitle: 'AI daily digest rollups, third-party webhooks, and cloud production release',
     status: 'PLANNED',
-    badge: 'SCHEDULED • UPCOMING',
+    badge: 'SCHEDULED // SPRINT 4',
     timeframe: 'Week 4',
     percent: 0,
     tasks: [
@@ -208,10 +210,8 @@ const PHASES: Phase[] = [
 ];
 
 export const RoadmapPage: React.FC = () => {
-  // Phase 1 open by default so users see the completed green architecture immediately
   const [openPhases, setOpenPhases] = useState<Record<string, boolean>>({
     'phase-1': true,
-    'phase-2': true,
   });
 
   const togglePhase = (id: string) => {
@@ -231,7 +231,7 @@ export const RoadmapPage: React.FC = () => {
         <div className="text-center space-y-4 max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono tracking-tight bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
             <ShieldCheck className="w-4 h-4" />
-            <span>PHASE 1 ARCHITECTURE VERIFIED & DEPLOYED</span>
+            <span>ACTIVE SPRINT: PHASE 1 ARCHITECTURE COMPLETED</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
@@ -243,27 +243,27 @@ export const RoadmapPage: React.FC = () => {
             active sprint implementation, and upcoming project phases.
           </p>
 
-          {/* Quick Stats Banner */}
+          {/* Quick Stats Banner (Active Sprint: Phase 1) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 text-left">
-            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-emerald-500/30">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase">Phase 1 Status</span>
-              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">100% Complete</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Codebase & Arch deployed</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10">
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-emerald-500/40 shadow-sm">
               <span className="text-[11px] font-mono text-zinc-500 uppercase">Active Sprint</span>
-              <p className="text-xl font-bold text-amber-500 mt-1">Phase 2</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Task board & migrations</p>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">Phase 1</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Architecture & Core Setup</p>
             </div>
             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase">Total Sprints</span>
-              <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">4 Weeks</p>
+              <span className="text-[11px] font-mono text-zinc-500 uppercase">Phase 1 Status</span>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">100% Ready</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Codebase verified & built</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10">
+              <span className="text-[11px] font-mono text-zinc-500 uppercase">Sprint Cadence</span>
+              <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">Weekly</p>
               <p className="text-[11px] text-zinc-500 mt-0.5">Iterative agile releases</p>
             </div>
             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase">Monorepo Packages</span>
-              <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">Frontend + API</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Realtime ws + Prisma 7</p>
+              <span className="text-[11px] font-mono text-zinc-500 uppercase">Tech Stack</span>
+              <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">Node + React</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Prisma 7 + WebSocket</p>
             </div>
           </div>
         </div>
@@ -280,8 +280,6 @@ export const RoadmapPage: React.FC = () => {
                 className={`rounded-3xl border transition-all duration-300 overflow-hidden ${
                   isPhase1
                     ? 'bg-emerald-950/[0.04] dark:bg-emerald-950/15 border-emerald-500/40 shadow-lg shadow-emerald-500/5'
-                    : phase.status === 'IN_PROGRESS'
-                    ? 'bg-zinc-50 dark:bg-zinc-950 border-amber-500/30'
                     : 'bg-zinc-50 dark:bg-zinc-950 border-black/10 dark:border-white/10'
                 }`}
               >
@@ -297,8 +295,6 @@ export const RoadmapPage: React.FC = () => {
                         className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded-full ${
                           isPhase1
                             ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                            : phase.status === 'IN_PROGRESS'
-                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                             : 'bg-zinc-200 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-black/10 dark:border-white/10'
                         }`}
                       >
@@ -309,8 +305,6 @@ export const RoadmapPage: React.FC = () => {
                         className={`text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md ${
                           isPhase1
                             ? 'bg-emerald-600 text-white shadow-sm'
-                            : phase.status === 'IN_PROGRESS'
-                            ? 'bg-amber-500/20 text-amber-500'
                             : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500'
                         }`}
                       >
@@ -418,9 +412,34 @@ export const RoadmapPage: React.FC = () => {
               Syncro
             </h1>
           </div>
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-zinc-500 border-t border-black/5 dark:border-white/5">
+          
+          {/* Clickable Built By Aditya Jha and Sinchana */}
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-zinc-500 border-t border-black/5 dark:border-white/5">
             <p>© 2026 Syncro Connected Workspace. All rights reserved.</p>
-            <p className="mt-1 sm:mt-0">Node.js • Express • PostgreSQL • Prisma 7 • WebSockets • React 19</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-zinc-600 dark:text-zinc-400">Built by</span>
+              <a
+                href="https://github.com/adityajha77"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-black/10 dark:border-white/15 hover:border-black/30 dark:hover:border-white/30 text-zinc-900 dark:text-white font-medium hover:scale-105 active:scale-95 transition-all shadow-sm"
+              >
+                <GitBranch className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Aditya Jha</span>
+                <ArrowUpRight className="w-3 h-3 text-zinc-400" />
+              </a>
+              <span className="text-zinc-600 dark:text-zinc-400">and</span>
+              <a
+                href="https://github.com/Rsinchana16"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-black/10 dark:border-white/15 hover:border-black/30 dark:hover:border-white/30 text-zinc-900 dark:text-white font-medium hover:scale-105 active:scale-95 transition-all shadow-sm"
+              >
+                <GitBranch className="w-3.5 h-3.5 text-purple-500" />
+                <span>Sinchana</span>
+                <ArrowUpRight className="w-3 h-3 text-zinc-400" />
+              </a>
+            </div>
           </div>
         </div>
       </footer>

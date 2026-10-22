@@ -1,15 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Terminal, 
-  Copy, 
-  Check, 
   ArrowUpRight, 
   Sparkles,
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
   CheckCircle2,
-  XCircle
+  XCircle,
+  GitBranch,
+  Activity,
+  TrendingUp
 } from 'lucide-react';
 import { HeroConstellation } from '../components/HeroConstellation';
 import { useTheme } from '../context/ThemeContext';
@@ -94,14 +94,31 @@ const COMPANY_SERVICES: ServiceCard[] = [
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
   const { isDark } = useTheme();
-  const [copiedCmd, setCopiedCmd] = useState(false);
   const sliderRef = useRef<HTMLDivElement | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText('npm run dev');
-    setCopiedCmd(true);
-    setTimeout(() => setCopiedCmd(false), 2000);
-  };
+  // Auto-scroll animation for cards that pauses when hovered
+  useEffect(() => {
+    const slider = sliderRef.current;
+    if (!slider) return;
+
+    let animationId: number;
+    const speed = 0.6; // smooth continuous scroll
+
+    const autoScroll = () => {
+      if (!isHovered && slider) {
+        slider.scrollLeft += speed;
+        // Infinite wrap-around loop
+        if (slider.scrollLeft >= slider.scrollWidth - slider.clientWidth - 2) {
+          slider.scrollLeft = 0;
+        }
+      }
+      animationId = requestAnimationFrame(autoScroll);
+    };
+
+    animationId = requestAnimationFrame(autoScroll);
+    return () => cancelAnimationFrame(animationId);
+  }, [isHovered]);
 
   const scrollSlider = (direction: 'left' | 'right') => {
     if (!sliderRef.current) return;
@@ -126,13 +143,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-b from-black/[0.05] dark:from-white/[0.07] to-transparent rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center space-y-8">
-          {/* Animated Main Headline: Stop Switching. Start Syncing. */}
+          {/* Animated Main Headline: Stop Switching. Start Syncing. (Both from Left to Right) */}
           <div className="space-y-4">
             <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight leading-[1.05] select-none">
               <span className="block animate-slide-left text-zinc-900 dark:text-white">
                 Stop Switching.
               </span>
-              <span className="block animate-slide-right text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 via-zinc-600 to-zinc-900 dark:from-white dark:via-zinc-300 dark:to-zinc-500 animate-text-shine mt-1">
+              <span className="block animate-slide-left-delayed text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 via-zinc-600 to-zinc-900 dark:from-white dark:via-zinc-300 dark:to-zinc-500 animate-text-shine mt-1">
                 Start Syncing.
               </span>
             </h1>
@@ -143,34 +160,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
             </p>
           </div>
 
-          {/* Action Buttons: Aceternity-Style Glow & Command Pill */}
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-            {/* Command Copy Pill */}
-            <div 
-              onClick={handleCopy}
-              className="group cursor-pointer flex items-center gap-3 px-5 py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-950 border border-black/10 dark:border-white/10 hover:border-black/25 dark:hover:border-white/30 transition-all duration-200 shadow-sm hover:scale-[1.02] active:scale-95"
-              title="Click to copy development command"
-            >
-              <Terminal className="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover:text-black dark:group-hover:text-white transition-colors" />
-              <span className="font-mono text-sm text-zinc-800 dark:text-zinc-300 font-medium">
-                <span className="text-zinc-400 dark:text-zinc-500">$</span> npm run dev
-              </span>
-              <button type="button" className="ml-1 text-zinc-400 group-hover:text-black dark:group-hover:text-white">
-                {copiedCmd ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              </button>
-            </div>
-
-            {/* Aceternity UI-Style Glowing Primary Button */}
+          {/* Clean Primary Action Button (Fixed color glitch - no spinning borders) */}
+          <div className="pt-4 flex items-center justify-center">
             <button
               onClick={onNavigateToRoadmap}
-              className="relative group p-0.5 rounded-2xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="flex items-center gap-2.5 px-7 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black font-semibold text-sm sm:text-base border border-emerald-500/40 hover:border-emerald-400 hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all hover:scale-105 active:scale-95 shadow-lg"
             >
-              <span className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-teal-400 to-indigo-500 rounded-2xl animate-spin duration-300 opacity-75 group-hover:opacity-100 transition-opacity" />
-              <span className="relative flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-black dark:bg-zinc-950 text-white font-semibold text-sm transition-transform duration-200 group-hover:scale-[0.99] group-active:scale-95">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>View Phase 1 Architecture & Weekly Sprints</span>
-                <ArrowUpRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </span>
+              <ShieldCheck className="w-5 h-5 text-emerald-400 dark:text-emerald-600" />
+              <span>View Phase 1 Architecture & Weekly Sprints</span>
+              <ArrowUpRight className="w-4 h-4 text-zinc-400 dark:text-zinc-600" />
             </button>
           </div>
 
@@ -264,8 +262,154 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
         </div>
       </section>
 
-      {/* What We Provide As A Company (Truus-Style Connected Cards Slider with Wires) */}
-      <section className="py-28 max-w-7xl mx-auto px-6 overflow-hidden">
+      {/* New Progress & Telemetry Section: One-Stop Solution to Track Your Progress (Circular Charts & Velocity) */}
+      <section className="py-24 max-w-6xl mx-auto px-6">
+        <div className="text-center space-y-3 mb-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <Activity className="w-3.5 h-3.5" />
+            <span>Real-time Workspace Telemetry</span>
+          </div>
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+            One-Stop Solution to Track Your Progress
+          </h2>
+          <p className="text-base sm:text-lg text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto">
+            Live observability over sprint execution, sub-millisecond event throughput, and automated team velocity analytics.
+          </p>
+        </div>
+
+        {/* Animated Circular Progress Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Circular Chart 1: Sprint 1 Completion */}
+          <div className="p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-emerald-500/30 flex flex-col items-center text-center shadow-lg group hover:scale-[1.02] transition-transform">
+            <div className="relative w-32 h-32 flex items-center justify-center mb-4">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" className="stroke-zinc-200 dark:stroke-zinc-800" strokeWidth="8" fill="none" />
+                <circle 
+                  cx="50" 
+                  cy="50" 
+                  r="42" 
+                  className="stroke-emerald-500" 
+                  strokeWidth="8" 
+                  strokeDasharray="264" 
+                  strokeDashoffset="0" 
+                  strokeLinecap="round" 
+                  fill="none" 
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-2xl font-black text-zinc-900 dark:text-white">100%</span>
+                <span className="text-[10px] font-mono text-emerald-500 font-bold">READY</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-1">Phase 1 Architecture</h3>
+            <p className="text-xs text-zinc-500 max-w-xs">Codebase, Express API, Prisma 7 models & WebSocket bus fully operational.</p>
+          </div>
+
+          {/* Circular Chart 2: Real-time Uptime */}
+          <div className="p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-purple-500/30 flex flex-col items-center text-center shadow-lg group hover:scale-[1.02] transition-transform">
+            <div className="relative w-32 h-32 flex items-center justify-center mb-4">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" className="stroke-zinc-200 dark:stroke-zinc-800" strokeWidth="8" fill="none" />
+                <circle 
+                  cx="50" 
+                  cy="50" 
+                  r="42" 
+                  className="stroke-purple-500" 
+                  strokeWidth="8" 
+                  strokeDasharray="264" 
+                  strokeDashoffset="3" 
+                  strokeLinecap="round" 
+                  fill="none" 
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-2xl font-black text-zinc-900 dark:text-white">99.9%</span>
+                <span className="text-[10px] font-mono text-purple-500 font-bold">UPTIME</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-1">Gateway Availability</h3>
+            <p className="text-xs text-zinc-500 max-w-xs">Continuous WebSocket connection health with automated peer reconnect.</p>
+          </div>
+
+          {/* Circular Chart 3: Sync Latency */}
+          <div className="p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-sky-500/30 flex flex-col items-center text-center shadow-lg group hover:scale-[1.02] transition-transform">
+            <div className="relative w-32 h-32 flex items-center justify-center mb-4">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" className="stroke-zinc-200 dark:stroke-zinc-800" strokeWidth="8" fill="none" />
+                <circle 
+                  cx="50" 
+                  cy="50" 
+                  r="42" 
+                  className="stroke-sky-500" 
+                  strokeWidth="8" 
+                  strokeDasharray="264" 
+                  strokeDashoffset="18" 
+                  strokeLinecap="round" 
+                  fill="none" 
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-2xl font-black text-zinc-900 dark:text-white">&lt;10ms</span>
+                <span className="text-[10px] font-mono text-sky-500 font-bold">SYNC</span>
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-1">Propagation Velocity</h3>
+            <p className="text-xs text-zinc-500 max-w-xs">State mutations propagate across distributed clients in sub-10 milliseconds.</p>
+          </div>
+        </div>
+
+        {/* Live Velocity Waveform Card */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-zinc-900 dark:text-white">Continuous Team Velocity & Throughput</h4>
+                <p className="text-xs text-zinc-500">Live monitoring of completed deliverables and active work items</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <span className="flex items-center gap-1.5 text-emerald-500 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                Live Event Bus
+              </span>
+              <span className="text-zinc-500">Node v24 • Prisma 7</span>
+            </div>
+          </div>
+
+          {/* SVG Waveform Graphic */}
+          <div className="w-full h-24 overflow-hidden rounded-xl bg-white dark:bg-black/50 border border-black/5 dark:border-white/5 relative flex items-end px-2 pt-2">
+            <svg className="w-full h-full" viewBox="0 0 600 70" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M 0 50 Q 50 20, 100 40 T 200 30 T 300 15 T 400 35 T 500 20 T 600 25 L 600 70 L 0 70 Z"
+                fill="url(#waveGradient)"
+              />
+              <path
+                d="M 0 50 Q 50 20, 100 40 T 200 30 T 300 15 T 400 35 T 500 20 T 600 25"
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="2.5"
+                className="animate-pulse"
+              />
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      {/* What We Provide As A Company (Auto-Scrolling Slider with Pause-on-Hover) */}
+      <section 
+        className="py-24 max-w-7xl mx-auto px-6 overflow-hidden"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-2">
             <span className="text-xs font-mono uppercase tracking-widest text-zinc-500">Product Portfolio</span>
@@ -273,7 +417,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
               What We Provide As A Company
             </h2>
             <p className="text-base text-zinc-600 dark:text-zinc-400 max-w-xl">
-              Engineered real-time collaboration modules connected through an integrated event wire.
+              Engineered real-time collaboration modules connected through an integrated event wire. Hover cursor to pause animation.
             </p>
           </div>
 
@@ -306,14 +450,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
               strokeDasharray="6 6"
               className="animate-pulse"
             />
-            {/* Glowing electrical pulse dots */}
             <circle cx="250" cy="8" r="4" className="fill-emerald-400 animate-ping" />
             <circle cx="500" cy="15" r="4" className="fill-purple-400 animate-ping" />
             <circle cx="750" cy="22" r="4" className="fill-sky-400 animate-ping" />
           </svg>
         </div>
 
-        {/* Horizontal Slider Area */}
+        {/* Horizontal Slider Area with Auto-Scroll & Pause on Hover */}
         <div
           ref={sliderRef}
           className="flex gap-6 overflow-x-auto pb-8 pt-2 scroll-smooth no-scrollbar snap-x snap-mandatory"
@@ -367,31 +510,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
         </div>
       </section>
 
-      {/* Mentor Progress Callout Banner */}
-      <section className="py-16 max-w-5xl mx-auto px-6">
-        <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-zinc-100 dark:to-zinc-950 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-xl">
-          <div className="space-y-2 max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-              <ShieldCheck className="w-4 h-4" />
-              <span>PHASE 1 ARCHITECTURE COMPLETED</span>
-            </div>
-            <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">
-              Ready to present to your mentor?
-            </h3>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Explore the dedicated Project Summary page with green verification cards, weekly timeframes,
-              and interactive breakdown for Phases 1, 2, 3, and 4.
-            </p>
-          </div>
-
-          <button
-            onClick={onNavigateToRoadmap}
-            className="shrink-0 flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black font-semibold text-sm hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all hover:scale-105 active:scale-95 shadow-lg"
-          >
-            <span>Open Roadmap & Phases</span>
-            <ArrowUpRight className="w-4 h-4" />
-          </button>
-        </div>
+      {/* Clean Single Line Link to Roadmap (Replacing the bulky image/box) */}
+      <section className="py-12 text-center">
+        <button
+          onClick={onNavigateToRoadmap}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-zinc-100 dark:bg-zinc-900 border border-black/10 dark:border-white/15 hover:border-emerald-500/50 text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white hover:scale-105 active:scale-95 transition-all shadow-sm"
+        >
+          <span>Open Roadmap and Phases</span>
+          <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+        </button>
       </section>
 
       {/* Monumental Footer with Antigravity-Style Giant Typography: SYNCRO */}
@@ -404,10 +531,33 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap }) => {
             </h1>
           </div>
 
-          {/* Sub-Footer Copyright */}
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-zinc-500 border-t border-black/5 dark:border-white/5">
+          {/* Clickable Built By Aditya Jha and Sinchana */}
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-zinc-500 border-t border-black/5 dark:border-white/5">
             <p>© 2026 Syncro Connected Workspace. All rights reserved.</p>
-            <p className="mt-1 sm:mt-0">Node.js • Express • PostgreSQL • Prisma 7 • WebSockets • React 19</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-zinc-600 dark:text-zinc-400">Built by</span>
+              <a
+                href="https://github.com/adityajha77"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-black/10 dark:border-white/15 hover:border-black/30 dark:hover:border-white/30 text-zinc-900 dark:text-white font-medium hover:scale-105 active:scale-95 transition-all shadow-sm"
+              >
+                <GitBranch className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Aditya Jha</span>
+                <ArrowUpRight className="w-3 h-3 text-zinc-400" />
+              </a>
+              <span className="text-zinc-600 dark:text-zinc-400">and</span>
+              <a
+                href="https://github.com/Rsinchana16"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-black/10 dark:border-white/15 hover:border-black/30 dark:hover:border-white/30 text-zinc-900 dark:text-white font-medium hover:scale-105 active:scale-95 transition-all shadow-sm"
+              >
+                <GitBranch className="w-3.5 h-3.5 text-purple-500" />
+                <span>Sinchana</span>
+                <ArrowUpRight className="w-3 h-3 text-zinc-400" />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
