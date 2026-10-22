@@ -15,6 +15,10 @@
     --border-color: rgba(255, 255, 255, 0.1);
   }
 
+  html {
+    font-size: 16.5px;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     background-color: var(--bg-main);
@@ -24,35 +28,25 @@
   }
 }
 
-/* Circular View Transitions support */
-::view-transition-old(root),
+/* Circular View Transitions support for BOTH light and dark */
+::view-transition-old(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  z-index: 1 !important;
+}
+
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
+  z-index: 99999 !important;
 }
 
-::view-transition-old(root) {
-  z-index: 1;
-}
-
-::view-transition-new(root) {
-  z-index: 9999;
-}
-
-.dark::view-transition-old(root) {
-  z-index: 9999;
-}
-
-.dark::view-transition-new(root) {
-  z-index: 1;
-}
-
-/* Linear-style background subtle grid */
+/* Background subtle grid pattern */
 .bg-grid-pattern {
   background-size: 40px 40px;
   background-image: 
-    linear-gradient(to right, rgba(120, 120, 120, 0.07) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(120, 120, 120, 0.07) 1px, transparent 1px);
+    linear-gradient(to right, rgba(120, 120, 120, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(120, 120, 120, 0.08) 1px, transparent 1px);
 }
 
 .mask-radial {
@@ -60,7 +54,51 @@
   -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 15%, #000 35%, transparent 100%);
 }
 
-/* Metallic text shine animation */
+/* Slide in from left and right animations for Stop Switching. Start Syncing. */
+@keyframes slideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-slide-left {
+  animation: slideInLeft 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-right {
+  animation: slideInRight 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float {
+  animation: floatGentle 4s ease-in-out infinite;
+}
+
+/* Text shine */
 @keyframes textShine {
   0% {
     background-position: 0% 50%;
@@ -78,26 +116,10 @@
   animation: textShine 6s ease infinite;
 }
 
-/* Pulse glow for Antigravity-style headline */
-@keyframes syncPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(1.02);
-  }
-}
-
-.animate-sync-pulse {
-  animation: syncPulse 4s ease-in-out infinite;
-}
-
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {

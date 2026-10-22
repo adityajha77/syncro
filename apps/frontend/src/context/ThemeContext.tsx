@@ -45,7 +45,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const y = rect.top + rect.height / 2;
     const targetDark = !isDark;
 
-    // Check if View Transitions API is supported
     const doc = document as unknown as {
       startViewTransition?: (callback: () => void) => {
         ready: Promise<void>;
@@ -71,14 +70,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ],
           },
           {
-            duration: 650,
+            duration: 600,
             easing: 'cubic-bezier(0.2, 0, 0, 1)',
             pseudoElement: '::view-transition-new(root)',
           }
         );
       });
     } else {
-      // Fallback circular expanding ripple animation overlay
+      // Fallback ripple overlay
       setRipple({ x, y, targetDark, active: true });
       setTimeout(() => {
         setIsDark(targetDark);
@@ -102,7 +101,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             height: '10px',
             transform: 'translate(-50%, -50%) scale(500)',
             backgroundColor: ripple.targetDark ? '#000000' : '#ffffff',
-            opacity: 0.95,
+            opacity: 0.98,
           }}
         />
       )}
