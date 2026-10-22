@@ -1,18 +1,18 @@
 import React from 'react';
+import { ThemeProvider } from './context/ThemeContext';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
 
 export const App: React.FC = () => {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Navbar />
-      <main className="flex-1">
-        <HomePage />
-      </main>
-      <footer className="border-t border-slate-900 py-8 text-center text-xs text-slate-500">
-        Syncro Connected Workspace • Architecture Initialized & Ready for Development
-      </footer>
-    </div>
+    <ThemeProvider>
+      <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300">
+        <Navbar />
+        <main className="flex-1">
+          <HomePage />
+        </main>
+      </div>
+    </ThemeProvider>
   );
 };
 
