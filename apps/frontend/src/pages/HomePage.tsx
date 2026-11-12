@@ -553,7 +553,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap, onNavig
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-bold text-zinc-900 dark:text-white leading-tight">{app.name}</p>
-                  <p className="text-[11px] font-mono text-zinc-500 leading-tight">{app.category}</p>
+                  <p className="text-[13px] font-mono text-zinc-500 leading-tight">{app.category}</p>
                 </div>
               </div>
             ))}
@@ -622,7 +622,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap, onNavig
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-500">
                   Sprint Velocity Metric
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+                <span className="px-2 py-0.5 rounded text-[12px] font-mono bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
                   {currentSummary.streak}
                 </span>
               </div>
@@ -632,7 +632,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap, onNavig
               </h3>
 
               {/* Dynamic Live Socket Beacon */}
-              <div className="flex items-center gap-2 mb-4 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-black/5 dark:border-white/5 text-[11px] font-mono text-zinc-500">
+              <div className="flex items-center gap-2 mb-4 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-black/5 dark:border-white/5 text-[13px] font-mono text-zinc-500">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
                 <span className="truncate">Live WebSocket Sync: 3.4ms latency • Active</span>
               </div>
@@ -687,7 +687,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap, onNavig
                       <span className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
                         {displayPercent}%
                       </span>
-                      <span className="text-[10px] font-mono uppercase text-zinc-500 font-semibold mt-0.5">
+                      <span className="text-[12px] font-mono uppercase text-zinc-500 font-semibold mt-0.5">
                         Live Progress
                       </span>
                     </div>
@@ -744,15 +744,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap, onNavig
               <div className="grid grid-cols-3 gap-3 mb-6 text-center">
                 <div className="p-3.5 rounded-2xl bg-white dark:bg-black border border-black/5 dark:border-white/10 shadow-sm">
                   <span className="block text-2xl font-black text-zinc-900 dark:text-white">{currentSummary.stat1.val}</span>
-                  <span className="text-[11px] font-mono text-zinc-500">{currentSummary.stat1.label}</span>
+                  <span className="text-[13px] font-mono text-zinc-500">{currentSummary.stat1.label}</span>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-white dark:bg-black border border-black/5 dark:border-white/10 shadow-sm">
                   <span className="block text-2xl font-black text-zinc-900 dark:text-white">{currentSummary.stat2.val}</span>
-                  <span className="text-[11px] font-mono text-zinc-500">{currentSummary.stat2.label}</span>
+                  <span className="text-[13px] font-mono text-zinc-500">{currentSummary.stat2.label}</span>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-white dark:bg-black border border-black/5 dark:border-white/10 shadow-sm">
                   <span className="block text-2xl font-black text-emerald-500">{currentSummary.stat3.val}</span>
-                  <span className="text-[11px] font-mono text-zinc-500">{currentSummary.stat3.label}</span>
+                  <span className="text-[13px] font-mono text-zinc-500">{currentSummary.stat3.label}</span>
                 </div>
               </div>
 
@@ -764,7 +764,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap, onNavig
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-bold text-zinc-900 dark:text-white">{task.title}</p>
-                        <span className="text-[10px] font-mono text-zinc-500">{task.time}</span>
+                        <span className="text-[12px] font-mono text-zinc-500">{task.time}</span>
                       </div>
                       <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5 leading-relaxed">
                         {task.desc}
@@ -891,7 +891,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToRoadmap, onNavig
                       {/* Truus-Style Hand Drawn Divider line */}
                       <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-black/20 dark:via-white/20 to-transparent my-4 group-hover:via-emerald-500 transition-colors duration-500" />
 
-                      <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
+                      <p className="text-[13px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
                         Core Capabilities:
                       </p>
                       <ul className="space-y-2.5 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300">

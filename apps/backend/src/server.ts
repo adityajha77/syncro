@@ -1,16 +1,18 @@
 import http from 'http';
-import dotenv from 'dotenv';
+import { config } from './config.js';
 import { createApp } from './app.js';
 import { wsManager } from './lib/websocket.js';
+import { startGithubPoller } from './services/github-sync.service.js';
 
-dotenv.config();
-
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = config.port;
 const app = createApp();
 const server = http.createServer(app);
 
 // Initialize real-time WebSocket server attached to HTTP server
 wsManager.initialize(server);
+
+// Keep connected GitHub repos fresh (no public URL needed, unlike webhooks)
+startGithubPoller();
 
 server.listen(PORT, () => {
   console.log(`===============================================`);

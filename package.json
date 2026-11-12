@@ -13,9 +13,11 @@
     "build": "npm run build -w @syncro/backend && npm run build -w @syncro/frontend",
     "build:backend": "npm run build -w @syncro/backend",
     "build:frontend": "npm run build -w @syncro/frontend",
+    "db:push": "npm run db:push -w @syncro/backend",
     "db:migrate": "npm run db:migrate -w @syncro/backend",
     "db:studio": "npm run db:studio -w @syncro/backend",
-    "db:generate": "npm run db:generate -w @syncro/backend"
+    "db:generate": "npm run db:generate -w @syncro/backend",
+    "db:secure": "npm run db:secure -w @syncro/backend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

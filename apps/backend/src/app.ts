@@ -1,6 +1,8 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { apiRouter } from './routes/index.js';
+import { errorHandler } from './lib/http.js';
+import { config } from './config.js';
 
 export function createApp(): Express {
   const app = express();
@@ -8,7 +10,7 @@ export function createApp(): Express {
   // Middleware
   app.use(
     cors({
-      origin: process.env.CLIENT_ORIGIN || '*',
+      origin: config.clientOrigin,
       credentials: true,
     })
   );
@@ -45,14 +47,7 @@ export function createApp(): Express {
   });
 
   // Error handler
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('[Error]', err.stack || err.message);
-    res.status(500).json({
-      success: false,
-      error: 'Internal Server Error',
-      message: process.env.NODE_ENV === 'development' ? err.message : undefined,
-    });
-  });
+  app.use(errorHandler);
 
   return app;
 }

@@ -1,74 +1,92 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { WSMessage } from '../types';
+import type { PresenceEntry, WSMessage } from '../types';
 
-export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
+export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected';
 
-export function useRealtime(onMessage?: (message: WSMessage) => void) {
-  const [status, setStatus] = useState<ConnectionStatus>('connecting');
-  const [lastMessage, setLastMessage] = useState<WSMessage | null>(null);
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:5000/ws';
+
+/**
+ * Connects to the Syncro realtime gateway, joins `workspaceId`'s room and
+ * keeps the connection alive with exponential-backoff reconnects.
+ *
+ * `onMessage` is kept in a ref so passing an inline function does not
+ * tear down the socket on every render.
+ */
+export function useRealtime(
+  token: string | null,
+  workspaceId: string | null,
+  onMessage?: (message: WSMessage) => void
+) {
+  const [status, setStatus] = useState<ConnectionStatus>('idle');
+  const [presence, setPresence] = useState<PresenceEntry[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<number | null>(null);
+  const handlerRef = useRef(onMessage);
+  handlerRef.current = onMessage;
 
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:5000/ws';
+  useEffect(() => {
+    if (!token || !workspaceId) {
+      setStatus('idle');
+      return;
+    }
 
-  const connect = useCallback(() => {
-    setStatus('connecting');
-    try {
-      const ws = new WebSocket(wsUrl);
+    let disposed = false;
+    let attempt = 0;
+    let retryTimer: number | undefined;
+
+    const connect = () => {
+      if (disposed) return;
+      setStatus('connecting');
+      const ws = new WebSocket(`${WS_URL}?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        setStatus('connected');
-        console.log('[WebSocket] Connected to', wsUrl);
+        attempt = 0;
+        ws.send(JSON.stringify({ event: 'JOIN_WORKSPACE', data: { workspaceId } }));
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = (e) => {
+        let msg: WSMessage;
         try {
-          const parsed = JSON.parse(event.data) as WSMessage;
-          setLastMessage(parsed);
-          if (onMessage) {
-            onMessage(parsed);
-          }
+          msg = JSON.parse(e.data) as WSMessage;
         } catch {
-          // Ignore unparsed messages
+          return;
         }
+        if (msg.event === 'JOINED') setStatus('connected');
+        if (msg.event === 'PRESENCE_STATE') {
+          setPresence((msg.data as { members: PresenceEntry[] }).members);
+        }
+        handlerRef.current?.(msg);
       };
 
-      ws.onclose = () => {
+      ws.onclose = (e) => {
+        wsRef.current = null;
         setStatus('disconnected');
-        console.warn('[WebSocket] Disconnected. Reconnecting in 3 seconds...');
-        reconnectTimeoutRef.current = window.setTimeout(() => {
-          connect();
-        }, 3000);
+        setPresence([]);
+        if (disposed || e.code === 4401) return; // 4401 = bad token, don't hammer
+        const delay = Math.min(30_000, 1000 * 2 ** attempt++);
+        retryTimer = window.setTimeout(connect, delay);
       };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    } catch (err) {
-      console.error('[WebSocket] Failed to connect:', err);
-      setStatus('disconnected');
-    }
-  }, [wsUrl, onMessage]);
-
-  useEffect(() => {
-    connect();
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
     };
-  }, [connect]);
 
-  const sendMessage = useCallback((event: string, data: unknown) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ event, data, timestamp: new Date().toISOString() }));
-    }
+    connect();
+    return () => {
+      disposed = true;
+      window.clearTimeout(retryTimer);
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, [token, workspaceId]);
+
+  const send = useCallback((event: string, data: unknown = {}) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event, data }));
   }, []);
 
-  return { status, lastMessage, sendMessage };
+  /** Tell teammates what you're doing (e.g. viewing "tasks", typing in a modal). */
+  const updatePresence = useCallback(
+    (p: { viewing?: string | null; typing?: boolean }) => send('PRESENCE_UPDATE', p),
+    [send]
+  );
+
+  return { status, presence, send, updatePresence };
 }

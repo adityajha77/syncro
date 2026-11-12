@@ -16,7 +16,7 @@
   }
 
   html {
-    font-size: 16.5px;
+    font-size: 17.5px;
     scroll-behavior: smooth;
   }
 
@@ -353,4 +353,17 @@
 ::-webkit-scrollbar-thumb {
   background: #d4d4d8;
   border-radius: 9999px;
+}
+
+/* ---------- App motion (dashboard, profile, toasts) ---------- */
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes modalIn { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes flashIn { 0% { background-color: rgba(139, 92, 246, 0.18); } 100% { background-color: transparent; } }
+.toast-in { animation: toastIn 0.22s ease-out; }
+.modal-in { animation: modalIn 0.2s ease-out; }
+.fade-up { animation: fadeUp 0.45s ease-out both; }
+.flash-in { animation: flashIn 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .toast-in, .modal-in, .fade-up, .flash-in { animation: none; }
 }

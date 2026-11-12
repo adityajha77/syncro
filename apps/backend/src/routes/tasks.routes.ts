@@ -1,147 +1,181 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request } from 'express';
+import { z } from 'zod';
+import { TaskStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { asyncHandler, parse, HttpError } from '../lib/http.js';
+import { publicUserSelect } from '../lib/auth.js';
 import { wsManager } from '../lib/websocket.js';
+import { recordActivity } from '../services/activity.service.js';
 
-export const tasksRouter = Router();
+// Mounted at /workspaces/:workspaceId/tasks behind requireMember()
+export const tasksRouter = Router({ mergeParams: true });
 
-// In-memory fallback if Postgres is not yet provisioned locally
-const memoryTasks = [
-  {
-    id: 't-1',
-    title: 'Initialize Syncro Monorepo Architecture',
-    description: 'Set up workspaces, Express backend, Prisma schema, and Vite React frontend',
-    status: 'DONE',
-    priority: 'HIGH',
-    dueDate: new Date(Date.now() + 86400000).toISOString(),
-    projectId: 'p-1',
-    assigneeId: 'u-1',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 't-2',
-    title: 'Configure Real-time WebSocket Protocol',
-    description: 'Establish bidirectional event bus for workspace activity updates',
-    status: 'IN_PROGRESS',
-    priority: 'URGENT',
-    dueDate: new Date(Date.now() + 172800000).toISOString(),
-    projectId: 'p-1',
-    assigneeId: 'u-1',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 't-3',
-    title: 'Design Unified Activity Timeline & Dashboard',
-    description: 'Create responsive visual UI with metrics and workspace summary',
-    status: 'TODO',
-    priority: 'MEDIUM',
-    dueDate: new Date(Date.now() + 259200000).toISOString(),
-    projectId: 'p-1',
-    assigneeId: 'u-2',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const taskInclude = {
+  assignee: { select: publicUserSelect },
+  createdBy: { select: publicUserSelect },
+} as const;
 
-// GET /api/v1/tasks
-tasksRouter.get('/', async (_req: Request, res: Response) => {
-  try {
+const STATUS_LABEL: Record<TaskStatus, string> = { TODO: 'To Do', IN_PROGRESS: 'In Progress', DONE: 'Done' };
+
+const canWrite = (req: Request) => {
+  if (req.membership!.role === 'VIEWER') throw new HttpError(403, 'Viewers cannot modify tasks');
+};
+
+const dateInput = z
+  .string()
+  .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+  .transform((v) => new Date(v));
+
+const createTaskSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200),
+  description: z.string().trim().max(5000).optional(),
+  status: z.nativeEnum(TaskStatus).default('TODO'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  dueDate: dateInput.nullable().optional(),
+  label: z.string().trim().max(60).optional(),
+  assigneeId: z.string().uuid().nullable().optional(),
+});
+
+const updateTaskSchema = createTaskSchema.partial();
+
+async function assertAssigneeIsMember(workspaceId: string, assigneeId?: string | null) {
+  if (!assigneeId) return;
+  const m = await prisma.workspaceMember.findUnique({
+    where: { userId_workspaceId: { userId: assigneeId, workspaceId } },
+  });
+  if (!m) throw new HttpError(400, 'Assignee is not a member of this workspace');
+}
+
+// GET /tasks?status=TODO&overdue=true
+tasksRouter.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    const q = parse(
+      z.object({ status: z.nativeEnum(TaskStatus).optional(), overdue: z.enum(['true', 'false']).optional() }),
+      req.query
+    );
     const tasks = await prisma.task.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: { assignee: true, project: true },
-    });
-    res.json({ success: true, count: tasks.length, data: tasks, source: 'database' });
-  } catch (error) {
-    // Graceful fallback to memory store if DB is offline
-    res.json({ success: true, count: memoryTasks.length, data: memoryTasks, source: 'fallback_store' });
-  }
-});
-
-// POST /api/v1/tasks
-tasksRouter.post('/', async (req: Request, res: Response) => {
-  const { title, description, status = 'TODO', priority = 'MEDIUM', dueDate, projectId = 'p-1', assigneeId } = req.body;
-
-  if (!title) {
-    res.status(400).json({ success: false, error: 'Task title is required' });
-    return;
-  }
-
-  try {
-    const newTask = await prisma.task.create({
-      data: {
-        title,
-        description,
-        status,
-        priority,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        projectId,
-        assigneeId: assigneeId || null,
+      where: {
+        workspaceId: req.membership!.workspaceId,
+        ...(q.status && { status: q.status }),
+        ...(q.overdue === 'true' && { status: { not: 'DONE' }, dueDate: { lt: new Date() } }),
       },
-      include: { assignee: true },
+      orderBy: [{ createdAt: 'desc' }],
+      include: taskInclude,
     });
+    res.json({ success: true, data: tasks });
+  })
+);
 
-    // Broadcast real-time event
-    wsManager.broadcast('TASK_CREATED', newTask);
+// POST /tasks
+tasksRouter.post(
+  '/',
+  asyncHandler(async (req, res) => {
+    canWrite(req);
+    const body = parse(createTaskSchema, req.body);
+    const workspaceId = req.membership!.workspaceId;
+    // Default assignee is the creator, matching the dashboard's behaviour.
+    const assigneeId = body.assigneeId === undefined ? req.userId! : body.assigneeId;
+    await assertAssigneeIsMember(workspaceId, assigneeId);
 
-    res.status(201).json({ success: true, data: newTask, source: 'database' });
-  } catch (error) {
-    // In-memory fallback
-    const fallbackTask = {
-      id: `t-${Date.now()}`,
-      title,
-      description: description || null,
-      status: status || 'TODO',
-      priority: priority || 'MEDIUM',
-      dueDate: dueDate || null,
-      projectId,
-      assigneeId: assigneeId || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    memoryTasks.unshift(fallbackTask);
-
-    // Broadcast real-time event
-    wsManager.broadcast('TASK_CREATED', fallbackTask);
-
-    res.status(201).json({ success: true, data: fallbackTask, source: 'fallback_store' });
-  }
-});
-
-// PATCH /api/v1/tasks/:id
-tasksRouter.patch('/:id', async (req: Request, res: Response) => {
-  const id = String(req.params.id);
-  const { status, title, description, priority } = req.body;
-
-  try {
-    const updated = await prisma.task.update({
-      where: { id },
+    const task = await prisma.task.create({
       data: {
-        ...(status && { status }),
-        ...(title && { title }),
-        ...(description !== undefined && { description }),
-        ...(priority && { priority }),
+        ...body,
+        assigneeId,
+        workspaceId,
+        createdById: req.userId!,
+        completedAt: body.status === 'DONE' ? new Date() : null,
       },
+      include: taskInclude,
     });
 
-    wsManager.broadcast('TASK_UPDATED', updated);
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    const taskIndex = memoryTasks.findIndex((t) => t.id === id);
-    if (taskIndex !== -1) {
-      memoryTasks[taskIndex] = {
-        ...memoryTasks[taskIndex],
-        ...(status && { status }),
-        ...(title && { title }),
-        ...(description !== undefined && { description }),
-        ...(priority && { priority }),
-        updatedAt: new Date().toISOString(),
-      };
-      const updated = memoryTasks[taskIndex];
-      wsManager.broadcast('TASK_UPDATED', updated);
-      res.json({ success: true, data: updated });
-      return;
+    wsManager.toWorkspace(workspaceId, 'TASK_CREATED', task);
+    await recordActivity({
+      workspaceId,
+      actorId: req.userId!,
+      type: 'TASK_CREATED',
+      summary: `created task "${task.title}"`,
+      entityType: 'task',
+      entityId: task.id,
+      metadata: { priority: task.priority },
+    });
+    res.status(201).json({ success: true, data: task });
+  })
+);
+
+// PATCH /tasks/:taskId
+tasksRouter.patch(
+  '/:taskId',
+  asyncHandler(async (req, res) => {
+    canWrite(req);
+    const body = parse(updateTaskSchema, req.body);
+    const workspaceId = req.membership!.workspaceId;
+    const before = await prisma.task.findFirst({ where: { id: String(req.params.taskId), workspaceId } });
+    if (!before) throw new HttpError(404, 'Task not found');
+    await assertAssigneeIsMember(workspaceId, body.assigneeId);
+
+    const statusChanged = body.status !== undefined && body.status !== before.status;
+    const task = await prisma.task.update({
+      where: { id: before.id },
+      data: {
+        ...body,
+        ...(statusChanged && { completedAt: body.status === 'DONE' ? new Date() : null }),
+      },
+      include: taskInclude,
+    });
+
+    wsManager.toWorkspace(workspaceId, 'TASK_UPDATED', task);
+
+    if (statusChanged) {
+      await recordActivity({
+        workspaceId,
+        actorId: req.userId!,
+        type: task.status === 'DONE' ? 'TASK_COMPLETED' : 'TASK_STATUS_CHANGED',
+        summary:
+          task.status === 'DONE'
+            ? `completed task "${task.title}"`
+            : `moved "${task.title}" from ${STATUS_LABEL[before.status]} to ${STATUS_LABEL[task.status]}`,
+        entityType: 'task',
+        entityId: task.id,
+        metadata: { from: before.status, to: task.status },
+      });
+    } else {
+      const changed = Object.keys(body).filter((k) => k !== 'status');
+      if (changed.length) {
+        await recordActivity({
+          workspaceId,
+          actorId: req.userId!,
+          type: 'TASK_UPDATED',
+          summary: `updated ${changed.join(', ')} on "${task.title}"`,
+          entityType: 'task',
+          entityId: task.id,
+          metadata: { fields: changed },
+        });
+      }
     }
-    res.status(404).json({ success: false, error: 'Task not found' });
-  }
-});
+    res.json({ success: true, data: task });
+  })
+);
+
+// DELETE /tasks/:taskId
+tasksRouter.delete(
+  '/:taskId',
+  asyncHandler(async (req, res) => {
+    canWrite(req);
+    const workspaceId = req.membership!.workspaceId;
+    const task = await prisma.task.findFirst({ where: { id: String(req.params.taskId), workspaceId } });
+    if (!task) throw new HttpError(404, 'Task not found');
+    await prisma.task.delete({ where: { id: task.id } });
+
+    wsManager.toWorkspace(workspaceId, 'TASK_DELETED', { id: task.id });
+    await recordActivity({
+      workspaceId,
+      actorId: req.userId!,
+      type: 'TASK_DELETED',
+      summary: `deleted task "${task.title}"`,
+      entityType: 'task',
+      entityId: task.id,
+    });
+    res.json({ success: true, data: { id: task.id } });
+  })
+);

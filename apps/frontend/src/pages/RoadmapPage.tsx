@@ -253,24 +253,24 @@ export const RoadmapPage: React.FC = () => {
           {/* Quick Stats Banner (Active Sprint: Phase 1) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 text-left">
             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-emerald-500/40 shadow-sm">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase">Active Sprint</span>
+              <span className="text-[13px] font-mono text-zinc-500 uppercase">Active Sprint</span>
               <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">Phase 1</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Architecture & Core Setup</p>
+              <p className="text-[13px] text-zinc-500 mt-0.5">Architecture & Core Setup</p>
             </div>
             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase">Phase 1 Status</span>
+              <span className="text-[13px] font-mono text-zinc-500 uppercase">Phase 1 Status</span>
               <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">100% Ready</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Codebase verified & built</p>
+              <p className="text-[13px] text-zinc-500 mt-0.5">Codebase verified & built</p>
             </div>
             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase">Sprint Cadence</span>
+              <span className="text-[13px] font-mono text-zinc-500 uppercase">Sprint Cadence</span>
               <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">Weekly</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Iterative agile releases</p>
+              <p className="text-[13px] text-zinc-500 mt-0.5">Iterative agile releases</p>
             </div>
             <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-black/10 dark:border-white/10">
-              <span className="text-[11px] font-mono text-zinc-500 uppercase">Tech Stack</span>
+              <span className="text-[13px] font-mono text-zinc-500 uppercase">Tech Stack</span>
               <p className="text-xl font-bold text-zinc-900 dark:text-white mt-1">Node + React</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Prisma 7 + WebSocket</p>
+              <p className="text-[13px] text-zinc-500 mt-0.5">Prisma 7 + WebSocket</p>
             </div>
           </div>
         </div>
@@ -309,7 +309,7 @@ export const RoadmapPage: React.FC = () => {
                       </span>
 
                       <span
-                        className={`text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-md ${
+                        className={`text-[13px] font-mono font-semibold px-2.5 py-0.5 rounded-md ${
                           isPhase1
                             ? 'bg-emerald-600 text-white shadow-sm'
                             : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500'
@@ -381,7 +381,7 @@ export const RoadmapPage: React.FC = () => {
                             </div>
 
                             <span
-                              className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-md font-semibold shrink-0 ${
+                              className={`text-[12px] font-mono uppercase px-2 py-0.5 rounded-md font-semibold shrink-0 ${
                                 task.category === 'Backend'
                                   ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                                   : task.category === 'Database'
