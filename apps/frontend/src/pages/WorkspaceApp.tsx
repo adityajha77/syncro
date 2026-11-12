@@ -197,6 +197,8 @@ export const WorkspaceApp: React.FC = () => {
 
   const github = integrations.find((i) => i.provider === 'github');
   const google = integrations.find((i) => i.provider === 'google');
+  /** Connected AND has calendar permission — only then call Google. */
+  const googleReady = !!google?.connected && !google.needsReconnect;
 
   // ---------- ui state ----------
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'ALL' | 'OVERDUE'>('ALL');
@@ -265,14 +267,14 @@ export const WorkspaceApp: React.FC = () => {
   }, [workspaceId, monthRange, fail]);
 
   const loadGoogle = useCallback(async () => {
-    if (!google?.connected) return setGoogleEvents([]);
+    if (!googleReady) return setGoogleEvents([]);
     try {
       setGoogleEvents(await api.googleEvents(monthRange));
     } catch (err) {
       setGoogleEvents([]);
       fail(err);
     }
-  }, [google?.connected, monthRange, fail]);
+  }, [googleReady, monthRange, fail]);
 
   useEffect(() => {
     setLoading(true);
@@ -759,7 +761,7 @@ export const WorkspaceApp: React.FC = () => {
                   <div>
                     <h2 className="text-base font-semibold text-white">Team Calendar</h2>
                     <p className="text-sm text-zinc-500">
-                      {google?.connected ? `+ Google · ${google.accountLabel}` : 'Workspace events'}
+                      {googleReady ? `+ Google · ${google!.accountLabel}` : 'Workspace events'}
                     </p>
                   </div>
                 </div>
@@ -873,10 +875,16 @@ export const WorkspaceApp: React.FC = () => {
                     ))}
                   </>
                 )}
-                {!google?.connected && (
-                  <Link to="/profile" className="block text-center text-xs text-zinc-500 hover:text-zinc-300">
-                    Connect Google Calendar to see your meetings here →
+                {google?.needsReconnect ? (
+                  <Link to="/profile" className="block rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-200 hover:bg-amber-500/15">
+                    Google Calendar needs calendar permission — reconnect in your profile →
                   </Link>
+                ) : (
+                  !google?.connected && (
+                    <Link to="/profile" className="block text-center text-xs text-zinc-500 hover:text-zinc-300">
+                      Connect Google Calendar to see your meetings here →
+                    </Link>
+                  )
                 )}
               </div>
             </section>
@@ -982,7 +990,7 @@ export const WorkspaceApp: React.FC = () => {
       {modal === 'event' && (
         <EventModal
           defaultDate={selectedDate}
-          googleConnected={!!google?.connected}
+          googleConnected={googleReady}
           onClose={() => setModal(null)}
           onSubmit={async (payload) => {
             const ev = await api.createEvent(workspace.id, payload);

@@ -92,6 +92,8 @@ export interface IntegrationStatus {
   provider: IntegrationKey;
   configured: boolean;
   connected: boolean;
+  /** Connected but missing required permissions (e.g. Calendar box unticked) */
+  needsReconnect: boolean;
   accountLabel: string | null;
   connectedAt: string | null;
 }

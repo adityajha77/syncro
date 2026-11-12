@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -74,9 +74,15 @@ export const ProfilePage: React.FC = () => {
   useEffect(loadIntegrations, [loadIntegrations]);
 
   // Result of an OAuth round-trip: /profile?integration=github&status=connected
+  // Guarded by a ref: React StrictMode runs mount effects twice in development,
+  // and both runs see the query string before it's cleared → duplicate toasts.
+  const handledOAuthResult = useRef<string | null>(null);
   useEffect(() => {
     const which = params.get('integration');
     if (!which) return;
+    const key = params.toString();
+    if (handledOAuthResult.current === key) return;
+    handledOAuthResult.current = key;
     const label = which === 'github' ? 'GitHub' : 'Google Calendar';
     if (params.get('status') === 'connected') toast('success', `${label} connected!`);
     else toast('error', `${label} connection failed: ${params.get('message') || 'unknown error'}`);
@@ -273,7 +279,11 @@ export const ProfilePage: React.FC = () => {
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-zinc-950">{meta.icon}</div>
                     <div className="min-w-0">
                       <div className="font-semibold text-white">{meta.title}</div>
-                      {st?.connected ? (
+                      {st?.needsReconnect ? (
+                        <div className="flex items-center gap-1.5 truncate text-sm text-amber-300">
+                          <span className="h-2 w-2 rounded-full bg-amber-400" /> Needs reconnect · {st.accountLabel}
+                        </div>
+                      ) : st?.connected ? (
                         <div className="flex items-center gap-1.5 truncate text-sm text-emerald-400">
                           <span className="h-2 w-2 rounded-full bg-emerald-400" /> {st.accountLabel}
                         </div>
@@ -289,6 +299,21 @@ export const ProfilePage: React.FC = () => {
                     <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
                       Not set up on the server yet — add the {meta.title} OAuth keys to the backend <code>.env</code>.
                     </p>
+                  ) : st?.needsReconnect ? (
+                    <div className="space-y-2">
+                      <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                        Calendar permission is missing. Reconnect and, on Google's screen, <b>tick the calendar checkbox</b> (
+                        "See, edit, create and delete all your Google Calendar events").
+                      </p>
+                      <div className="flex gap-2">
+                        <button onClick={() => connect(key)} disabled={integBusy === key} className={`${primaryBtn} flex-1`}>
+                          {integBusy === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Reconnect
+                        </button>
+                        <button onClick={() => disconnectIntegration(key)} disabled={integBusy === key} className={ghostBtn}>
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
                   ) : st?.connected ? (
                     <button onClick={() => disconnectIntegration(key)} disabled={integBusy === key} className={ghostBtn}>
                       {integBusy === key && <Loader2 className="h-4 w-4 animate-spin" />} Disconnect

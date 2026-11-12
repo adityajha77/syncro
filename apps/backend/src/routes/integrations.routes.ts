@@ -14,6 +14,7 @@ import {
   getAccessToken,
   githubApi,
   googleApi,
+  hasRequiredScopes,
 } from '../services/integrations.service.js';
 
 export const integrationsRouter = Router();
@@ -36,6 +37,8 @@ integrationsRouter.get(
         provider: key,
         configured: PROVIDERS[key].configured(),
         connected: !!row,
+        // Connected, but without the permissions Syncro needs (e.g. Calendar box unticked)
+        needsReconnect: !!row && !hasRequiredScopes(row.provider, row.scopes),
         accountLabel: row?.accountLabel ?? null,
         connectedAt: row?.createdAt ?? null,
       };

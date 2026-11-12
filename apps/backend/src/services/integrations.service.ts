@@ -23,7 +23,18 @@ export const PROVIDERS: Record<ProviderKey, { enumValue: IntegrationProvider; co
 };
 
 const GITHUB_SCOPES = 'read:user repo';
-const GOOGLE_SCOPES = ['openid', 'email', 'https://www.googleapis.com/auth/calendar.events'].join(' ');
+export const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const GOOGLE_SCOPES = ['openid', 'email', GOOGLE_CALENDAR_SCOPE].join(' ');
+
+/**
+ * Google uses granular consent: users can untick the Calendar checkbox and still
+ * "connect". Such a token only has openid/email, and every Calendar call fails.
+ */
+export const hasRequiredScopes = (provider: IntegrationProvider, granted: string) =>
+  provider === 'GOOGLE' ? granted.split(/[\s,]+/).includes(GOOGLE_CALENDAR_SCOPE) : true;
+
+export const MISSING_CALENDAR_PERMISSION =
+  'Calendar permission was not granted. Click Connect again and, on the Google screen, tick "See, edit, create and delete all your Google Calendar events".';
 
 export const callbackUrl = (p: ProviderKey) => `${config.apiPublicUrl}/api/v1/integrations/${p}/callback`;
 
@@ -119,13 +130,19 @@ export async function completeOAuth(provider: ProviderKey, code: string, userId:
     redirect_uri: callbackUrl('google'),
   });
   const accessToken = String(tok.access_token);
+  const grantedScopes = String(tok.scope ?? '');
+  if (!hasRequiredScopes('GOOGLE', grantedScopes)) {
+    // Don't keep a half-granted connection: revoke it and ask the user to retry.
+    await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`, { method: 'POST' }).catch(() => {});
+    throw new HttpError(400, MISSING_CALENDAR_PERMISSION);
+  }
   const info = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   }).then((r) => r.json() as Promise<{ sub: string; email: string }>);
   return saveIntegration(userId, 'GOOGLE', {
     accountId: info.sub,
     accountLabel: info.email,
-    scopes: String(tok.scope ?? GOOGLE_SCOPES),
+    scopes: grantedScopes,
     accessToken,
     refreshToken: tok.refresh_token ? String(tok.refresh_token) : undefined,
     expiresInSec: Number(tok.expires_in) || 3600,
@@ -158,6 +175,9 @@ export async function getAccessToken(userId: string, provider: IntegrationProvid
   const integ = await prisma.integration.findUnique({ where: { userId_provider: { userId, provider } } });
   if (!integ) {
     throw new HttpError(400, `Connect your ${provider === 'GITHUB' ? 'GitHub' : 'Google'} account in your profile first`);
+  }
+  if (!hasRequiredScopes(provider, integ.scopes)) {
+    throw new HttpError(403, MISSING_CALENDAR_PERMISSION);
   }
   const notExpired = !integ.accessTokenExpires || integ.accessTokenExpires > new Date();
   if (notExpired) return decryptSecret(integ.accessTokenEnc);
@@ -236,7 +256,16 @@ export async function googleApi<T>(token: string, path: string, init: RequestIni
   });
   if (res.status === 401) throw new HttpError(401, 'Google access was revoked — please reconnect Google Calendar');
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: { message?: string; details?: { reason?: string }[]; errors?: { reason?: string }[] };
+    };
+    const reasons = [...(body.error?.details ?? []), ...(body.error?.errors ?? [])].map((d) => d.reason);
+    if (res.status === 403 && (reasons.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') || /insufficient authentication scopes/i.test(body.error?.message ?? ''))) {
+      throw new HttpError(403, MISSING_CALENDAR_PERMISSION);
+    }
+    if (res.status === 403 && /has not been used|is disabled/i.test(body.error?.message ?? '')) {
+      throw new HttpError(503, 'Google Calendar API is not enabled for this Google Cloud project — enable it in the Google Cloud console.');
+    }
     throw new HttpError(502, `Google Calendar error: ${body.error?.message || res.status}`);
   }
   return (res.status === 204 ? undefined : res.json()) as Promise<T>;
