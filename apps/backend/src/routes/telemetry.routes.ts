@@ -28,10 +28,9 @@ telemetryRouter.get(
     const total = byStatus.reduce((n, b) => n + b._count, 0);
     const done = count('DONE');
     const completionRate = total ? Math.round((done / total) * 100) : 0;
-    // Same weighting the dashboard used client-side: 70% completion, 30% overdue penalty.
-    const healthScore = total
-      ? Math.max(0, Math.min(100, Math.round(completionRate * 0.7 + Math.max(0, 100 - overdue * 25) * 0.3)))
-      : 100;
+    // Keep in sync with WorkspaceApp: on-time share weighs 70%, completion 30%.
+    // A fresh board with nothing late is healthy (70); overdue work drags it down.
+    const healthScore = total ? Math.round((1 - overdue / total) * 70 + completionRate * 0.3) : 100;
 
     res.json({
       success: true,

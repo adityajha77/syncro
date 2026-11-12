@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft,
   Calendar,
   Check,
   Copy,
   KeyRound,
-  Layers,
+  LayoutDashboard,
   Link2,
   Loader2,
   LogOut,
@@ -16,29 +15,21 @@ import {
   User as UserIcon,
   Users,
   DoorOpen,
+  Sparkles,
+  UserPlus,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import type { IntegrationKey, IntegrationStatus, Workspace } from '../types';
-import { Avatar, GithubIcon, ghostBtn, inputCls, labelCls, primaryBtn, useToast } from '../components/ui';
+import { AppBackdrop, Avatar, Bento, BentoHeader, GithubIcon, ghostBtn, inputCls, labelCls, primaryBtn, useToast, wellCls } from '../components/ui';
+import { AppHeader } from '../components/AppHeader';
 
-const card = 'rounded-2xl border border-zinc-800 bg-[#12141d]/90 p-6 shadow-lg';
 const ROLE_STYLE: Record<string, string> = {
-  OWNER: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  ADMIN: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  MEMBER: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  VIEWER: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
+  OWNER: 'border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300',
+  ADMIN: 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  MEMBER: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+  VIEWER: 'border-black/10 bg-zinc-100 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300',
 };
-
-const SectionTitle: React.FC<{ icon: React.ReactNode; title: string; subtitle?: string }> = ({ icon, title, subtitle }) => (
-  <div className="mb-5 flex items-start gap-3">
-    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-200">{icon}</div>
-    <div>
-      <h2 className="text-lg font-semibold text-white">{title}</h2>
-      {subtitle && <p className="text-sm text-zinc-400">{subtitle}</p>}
-    </div>
-  </div>
-);
 
 export const ProfilePage: React.FC = () => {
   const { user, setUser, workspaces, activeWorkspace, setActiveWorkspaceId, upsertWorkspace, removeWorkspace, logout } = useAuth();
@@ -216,177 +207,249 @@ export const ProfilePage: React.FC = () => {
   const integrationMeta: Record<IntegrationKey, { title: string; icon: React.ReactNode; blurb: string }> = {
     github: {
       title: 'GitHub',
-      icon: <GithubIcon className="h-6 w-6" />,
+      icon: <GithubIcon className="h-7 w-7" />,
       blurb: 'Pick a repository per workspace and Syncro pulls real commits into the feed and activity ledger.',
     },
     google: {
       title: 'Google Calendar',
-      icon: <Calendar className="h-6 w-6" />,
+      icon: <Calendar className="h-7 w-7" />,
       blurb: 'See your meetings on the workspace calendar and add team events to your Google Calendar.',
     },
   };
 
+  const connectedCount = integrations?.filter((i) => i.connected && !i.needsReconnect).length ?? 0;
+
   return (
-    <div className="min-h-screen bg-[#08090d] text-zinc-100">
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-72 bg-gradient-to-b from-violet-600/10 via-indigo-500/5 to-transparent" />
+    <div className="relative min-h-screen bg-white font-sans text-zinc-900 antialiased transition-colors duration-300 selection:bg-black selection:text-white dark:bg-black dark:text-zinc-100 dark:selection:bg-white dark:selection:text-black">
+      <AppBackdrop />
+      <AppHeader />
 
-      {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-zinc-800 bg-[#0c0d13]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link to="/app" className="group inline-flex items-center gap-2 text-sm text-zinc-300 hover:text-white">
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-            Back to workspace
-          </Link>
-          <Link to="/" className="flex items-center gap-2 font-semibold text-white">
-            <Layers className="h-5 w-5" /> Syncro
-          </Link>
-        </div>
-      </header>
-
-      <main className="relative mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
-        {/* Identity hero */}
-        <section className={`${card} fade-up flex flex-col items-start gap-5 sm:flex-row sm:items-center`}>
-          <Avatar name={user.name} size="xl" />
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-2xl font-bold text-white">{user.name}</h1>
-            <p className="truncate text-base text-zinc-400">{user.email}</p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Member since {new Date(user.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} ·{' '}
-              {workspaces.length} workspace{workspaces.length === 1 ? '' : 's'}
-            </p>
+      <main className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-6 sm:px-6 lg:grid-cols-12 lg:gap-5">
+        {/* ================= IDENTITY ================= */}
+        <Bento className="fade-up lg:col-span-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+            <div className="relative">
+              <Avatar name={user.name} size="xl" className="!h-24 !w-24 !text-3xl" />
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-4 border-zinc-50 bg-emerald-500 dark:border-zinc-950">
+                <Check className="h-3.5 w-3.5 stroke-[3] text-white" />
+              </span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-white/10 dark:bg-black dark:text-zinc-300">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> Your profile
+              </span>
+              <h1 className="truncate text-3xl font-extrabold tracking-tight text-black dark:text-white sm:text-4xl">{user.name}</h1>
+              <p className="truncate text-base text-zinc-500 dark:text-zinc-400">{user.email}</p>
+            </div>
           </div>
-          <button
-            onClick={() => {
-              logout();
-              navigate('/');
-            }}
-            className={`${ghostBtn} hover:border-red-500/40 hover:text-red-300`}
-          >
-            <LogOut className="h-4 w-4" /> Log out
-          </button>
-        </section>
 
-        {/* Connected accounts */}
-        <section className={`${card} fade-up`}>
-          <SectionTitle icon={<Link2 className="h-5 w-5" />} title="Connected accounts" subtitle="Bring your real work into Syncro." />
-          <div className="grid gap-4 md:grid-cols-2">
-            {(['github', 'google'] as IntegrationKey[]).map((key) => {
-              const meta = integrationMeta[key];
-              const st = integrations?.find((i) => i.provider === key);
-              return (
-                <div key={key} className="flex flex-col rounded-xl border border-zinc-800 bg-[#0a0b10] p-5 transition hover:border-zinc-700">
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-zinc-950">{meta.icon}</div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-white">{meta.title}</div>
-                      {st?.needsReconnect ? (
-                        <div className="flex items-center gap-1.5 truncate text-sm text-amber-300">
-                          <span className="h-2 w-2 rounded-full bg-amber-400" /> Needs reconnect · {st.accountLabel}
-                        </div>
-                      ) : st?.connected ? (
-                        <div className="flex items-center gap-1.5 truncate text-sm text-emerald-400">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400" /> {st.accountLabel}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-zinc-500">Not connected</div>
-                      )}
-                    </div>
-                  </div>
-                  <p className="mb-4 flex-1 text-sm leading-relaxed text-zinc-400">{meta.blurb}</p>
-                  {!integrations ? (
-                    <div className="h-9 animate-pulse rounded-lg bg-zinc-900" />
-                  ) : st && !st.configured ? (
-                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                      Not set up on the server yet — add the {meta.title} OAuth keys to the backend <code>.env</code>.
-                    </p>
-                  ) : st?.needsReconnect ? (
-                    <div className="space-y-2">
-                      <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                        Calendar permission is missing. Reconnect and, on Google's screen, <b>tick the calendar checkbox</b> (
-                        "See, edit, create and delete all your Google Calendar events").
-                      </p>
-                      <div className="flex gap-2">
-                        <button onClick={() => connect(key)} disabled={integBusy === key} className={`${primaryBtn} flex-1`}>
-                          {integBusy === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Reconnect
-                        </button>
-                        <button onClick={() => disconnectIntegration(key)} disabled={integBusy === key} className={ghostBtn}>
-                          Disconnect
-                        </button>
-                      </div>
-                    </div>
-                  ) : st?.connected ? (
-                    <button onClick={() => disconnectIntegration(key)} disabled={integBusy === key} className={ghostBtn}>
-                      {integBusy === key && <Loader2 className="h-4 w-4 animate-spin" />} Disconnect
-                    </button>
-                  ) : (
-                    <button onClick={() => connect(key)} disabled={integBusy === key} className={primaryBtn}>
-                      {integBusy === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                      Connect {meta.title}
-                    </button>
-                  )}
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            {[
+              { k: 'Member since', v: new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) },
+              { k: 'Workspaces', v: workspaces.length },
+              { k: 'Connected apps', v: `${connectedCount}/2` },
+            ].map((s) => (
+              <div key={s.k} className={`${wellCls} px-4 py-3`}>
+                <div className="text-xs font-medium text-zinc-500">{s.k}</div>
+                <div className="mt-0.5 truncate text-xl font-bold tabular-nums text-black dark:text-white">{s.v}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link to="/app" className={primaryBtn}>
+              <LayoutDashboard className="h-4 w-4" /> Open workspace
+            </Link>
+            <button
+              onClick={() => {
+                logout();
+                navigate('/');
+              }}
+              className={`${ghostBtn} hover:!border-red-500/40 hover:!text-red-500`}
+            >
+              <LogOut className="h-4 w-4" /> Log out
+            </button>
+          </div>
+        </Bento>
+
+        {/* ================= ACCOUNT ================= */}
+        <Bento className="fade-up flex flex-col lg:col-span-4" style={{ animationDelay: '60ms' }}>
+          <BentoHeader icon={<UserIcon className="h-5 w-5" />} title="Account" subtitle="How teammates see you" />
+          <form onSubmit={saveName} className="flex flex-1 flex-col gap-4">
+            <div>
+              <label className={labelCls}>Display name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} maxLength={80} />
+            </div>
+            <div>
+              <label className={labelCls}>Email</label>
+              <input value={user.email} disabled className={`${inputCls} cursor-not-allowed opacity-60`} />
+            </div>
+            <button type="submit" disabled={savingName || !name.trim() || name.trim() === user.name} className={`${primaryBtn} mt-auto`}>
+              {savingName && <Loader2 className="h-4 w-4 animate-spin" />} Save changes
+            </button>
+          </form>
+        </Bento>
+
+        {/* ================= INTEGRATIONS ================= */}
+        {(['github', 'google'] as IntegrationKey[]).map((key, i) => {
+          const meta = integrationMeta[key];
+          const st = integrations?.find((x) => x.provider === key);
+          const state = !integrations
+            ? 'loading'
+            : st && !st.configured
+            ? 'unconfigured'
+            : st?.needsReconnect
+            ? 'reconnect'
+            : st?.connected
+            ? 'connected'
+            : 'disconnected';
+          const pill = {
+            loading: { label: 'Checking…', cls: 'border-black/10 text-zinc-500 dark:border-white/10' },
+            unconfigured: { label: 'Not set up', cls: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+            reconnect: { label: 'Needs reconnect', cls: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+            connected: { label: 'Connected', cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+            disconnected: { label: 'Not connected', cls: 'border-black/10 bg-white text-zinc-500 dark:border-white/10 dark:bg-black' },
+          }[state];
+          return (
+            <Bento key={key} className="fade-up flex flex-col lg:col-span-4" style={{ animationDelay: `${120 + i * 60}ms` }}>
+              <div className="mb-5 flex items-start justify-between gap-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black text-white shadow-lg dark:bg-white dark:text-black">
+                  {meta.icon}
                 </div>
-              );
-            })}
-          </div>
-        </section>
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${pill.cls}`}>
+                  {state === 'connected' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />}
+                  {pill.label}
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-black dark:text-white">{meta.title}</h2>
+              {st?.connected && st.accountLabel && <p className="truncate text-sm font-medium text-zinc-700 dark:text-zinc-300">{st.accountLabel}</p>}
+              <p className="mb-5 mt-2 flex-1 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{meta.blurb}</p>
 
-        {/* Workspaces */}
-        <section className={`${card} fade-up`}>
-          <SectionTitle
+              {state === 'loading' ? (
+                <div className="h-10 animate-pulse rounded-xl bg-black/[0.05] dark:bg-white/[0.06]" />
+              ) : state === 'unconfigured' ? (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+                  Add the {meta.title} OAuth keys to the backend <code className="font-mono">.env</code> to enable this.
+                </p>
+              ) : state === 'reconnect' ? (
+                <div className="space-y-2">
+                  <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
+                    Calendar permission is missing. On Google's screen, <b>tick the calendar checkbox</b>.
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => connect(key)} disabled={integBusy === key} className={`${primaryBtn} flex-1`}>
+                      {integBusy === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Reconnect
+                    </button>
+                    <button onClick={() => disconnectIntegration(key)} disabled={integBusy === key} className={ghostBtn}>
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              ) : state === 'connected' ? (
+                <button onClick={() => disconnectIntegration(key)} disabled={integBusy === key} className={ghostBtn}>
+                  {integBusy === key && <Loader2 className="h-4 w-4 animate-spin" />} Disconnect
+                </button>
+              ) : (
+                <button onClick={() => connect(key)} disabled={integBusy === key} className={primaryBtn}>
+                  {integBusy === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                  Connect {meta.title}
+                </button>
+              )}
+            </Bento>
+          );
+        })}
+
+        {/* ================= SECURITY ================= */}
+        <Bento className="fade-up flex flex-col lg:col-span-4" style={{ animationDelay: '240ms' }}>
+          <BentoHeader icon={<Shield className="h-5 w-5" />} title="Security" subtitle="Change your password" />
+          <form onSubmit={changePassword} className="flex flex-1 flex-col gap-4">
+            <div>
+              <label className={labelCls}>Current password</label>
+              <input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoComplete="current-password" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>New password</label>
+              <input
+                type="password"
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                className={inputCls}
+              />
+            </div>
+            <button type="submit" disabled={savingPw || !currentPw || newPw.length < 8} className={`${primaryBtn} mt-auto`}>
+              {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} Change password
+            </button>
+          </form>
+        </Bento>
+
+        {/* ================= WORKSPACES ================= */}
+        <Bento className="fade-up lg:col-span-8" style={{ animationDelay: '300ms' }}>
+          <BentoHeader
             icon={<Users className="h-5 w-5" />}
             title="Workspaces"
-            subtitle="Share an invite code with friends so they can join your workspace."
+            subtitle="Share an invite code so friends can join"
           />
-
           <div className="space-y-3">
             {workspaces.map((ws) => {
               const link = ws.inviteCode ? `${window.location.origin}/join/${ws.inviteCode}` : '';
               const isAdmin = ws.role === 'OWNER' || ws.role === 'ADMIN';
+              const active = ws.id === activeWorkspace?.id;
               return (
                 <div
                   key={ws.id}
-                  className={`rounded-xl border bg-[#0a0b10] p-4 transition ${
-                    ws.id === activeWorkspace?.id ? 'border-violet-500/40 shadow-[0_0_0_1px_rgba(139,92,246,0.15)]' : 'border-zinc-800'
+                  className={`rounded-2xl border bg-white p-4 transition dark:bg-black/50 ${
+                    active ? 'border-emerald-500/40 shadow-[0_0_0_3px_rgba(16,185,129,0.08)]' : 'border-black/[0.07] hover:border-black/20 dark:border-white/[0.07] dark:hover:border-white/20'
                   }`}
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    <Avatar name={ws.name} size="md" />
+                    <Avatar name={ws.name} size="md" className="!rounded-xl !ring-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-semibold text-white">{ws.name}</span>
-                        <span className={`rounded-md border px-2 py-0.5 text-xs font-medium ${ROLE_STYLE[ws.role]}`}>{ws.role}</span>
-                        {ws.id === activeWorkspace?.id && <span className="text-xs text-violet-300">Active</span>}
+                        <span className="truncate font-semibold text-black dark:text-white">{ws.name}</span>
+                        <span className={`rounded-lg border px-2 py-0.5 text-xs font-semibold ${ROLE_STYLE[ws.role]}`}>{ws.role.toLowerCase()}</span>
+                        {active && (
+                          <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-zinc-500">
                         {ws.memberCount} member{ws.memberCount === 1 ? '' : 's'}
-                        {ws.repoFullName && <> · <span className="font-mono">{ws.repoFullName}</span></>}
+                        {ws.repoFullName && (
+                          <>
+                            {' · '}
+                            <span className="font-mono">{ws.repoFullName}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <button onClick={() => open(ws)} className={ghostBtn}>
                       Open
                     </button>
                     {ws.role !== 'OWNER' && (
-                      <button onClick={() => leave(ws)} className={`${ghostBtn} hover:border-red-500/40 hover:text-red-300`} title="Leave workspace">
+                      <button onClick={() => leave(ws)} className={`${ghostBtn} !px-2.5 hover:!border-red-500/40 hover:!text-red-500`} title="Leave workspace">
                         <DoorOpen className="h-4 w-4" />
                       </button>
                     )}
                   </div>
 
                   {ws.inviteCode && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-zinc-800 bg-black/20 px-3 py-2.5">
-                      <span className="text-sm text-zinc-400">Invite code</span>
-                      <code className="rounded-md bg-zinc-900 px-2.5 py-1 font-mono text-base font-semibold tracking-widest text-white">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-black/15 bg-zinc-50 px-3 py-2.5 dark:border-white/15 dark:bg-zinc-950">
+                      <span className="text-sm text-zinc-500">Invite code</span>
+                      <code className="rounded-lg border border-black/10 bg-white px-2.5 py-1 font-mono text-base font-bold tracking-widest text-black dark:border-white/10 dark:bg-black dark:text-white">
                         {ws.inviteCode}
                       </code>
                       <div className="ml-auto flex flex-wrap gap-2">
-                        <button onClick={() => copy(ws.inviteCode!, `code-${ws.id}`)} className={ghostBtn}>
-                          {copied === `code-${ws.id}` ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />} Code
+                        <button onClick={() => copy(ws.inviteCode!, `code-${ws.id}`)} className={`${ghostBtn} !py-1.5`}>
+                          {copied === `code-${ws.id}` ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />} Code
                         </button>
-                        <button onClick={() => copy(link, `link-${ws.id}`)} className={ghostBtn}>
-                          {copied === `link-${ws.id}` ? <Check className="h-4 w-4 text-emerald-400" /> : <Link2 className="h-4 w-4" />} Link
+                        <button onClick={() => copy(link, `link-${ws.id}`)} className={`${ghostBtn} !py-1.5`}>
+                          {copied === `link-${ws.id}` ? <Check className="h-4 w-4 text-emerald-500" /> : <Link2 className="h-4 w-4" />} Link
                         </button>
                         {isAdmin && (
-                          <button onClick={() => regenerate(ws)} className={ghostBtn} title="Generate a new code">
+                          <button onClick={() => regenerate(ws)} className={`${ghostBtn} !px-2.5 !py-1.5`} title="Generate a new code">
                             <RefreshCw className="h-4 w-4" />
                           </button>
                         )}
@@ -397,79 +460,36 @@ export const ProfilePage: React.FC = () => {
               );
             })}
           </div>
+        </Bento>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <form onSubmit={join} className="rounded-xl border border-zinc-800 bg-[#0a0b10] p-4">
-              <label className={labelCls}>Join a friend's workspace</label>
-              <div className="flex gap-2">
-                <input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="ABCD-1234"
-                  className={`${inputCls} font-mono tracking-widest`}
-                  maxLength={12}
-                />
-                <button type="submit" disabled={joining || !joinCode.trim()} className={primaryBtn}>
-                  {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Join'}
-                </button>
-              </div>
-            </form>
-            <form onSubmit={create} className="rounded-xl border border-zinc-800 bg-[#0a0b10] p-4">
-              <label className={labelCls}>Create a new workspace</label>
-              <div className="flex gap-2">
-                <input value={newWsName} onChange={(e) => setNewWsName(e.target.value)} placeholder="e.g. Hackathon team" className={inputCls} maxLength={80} />
-                <button type="submit" disabled={creating || !newWsName.trim()} className={primaryBtn}>
-                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                </button>
-              </div>
-            </form>
-          </div>
-        </section>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Account */}
-          <section className={`${card} fade-up`}>
-            <SectionTitle icon={<UserIcon className="h-5 w-5" />} title="Account" />
-            <form onSubmit={saveName} className="space-y-4">
-              <div>
-                <label className={labelCls}>Display name</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} maxLength={80} />
-              </div>
-              <div>
-                <label className={labelCls}>Email</label>
-                <input value={user.email} disabled className={`${inputCls} cursor-not-allowed opacity-60`} />
-              </div>
-              <button type="submit" disabled={savingName || !name.trim() || name.trim() === user.name} className={primaryBtn}>
-                {savingName && <Loader2 className="h-4 w-4 animate-spin" />} Save changes
+        {/* ================= JOIN / CREATE ================= */}
+        <Bento className="fade-up flex flex-col gap-6 lg:col-span-4" style={{ animationDelay: '360ms' }}>
+          <form onSubmit={join}>
+            <BentoHeader icon={<UserPlus className="h-5 w-5" />} title="Join a workspace" subtitle="Got a code from a friend?" />
+            <div className="flex gap-2">
+              <input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="ABCD-1234"
+                className={`${inputCls} font-mono tracking-widest`}
+                maxLength={12}
+              />
+              <button type="submit" disabled={joining || !joinCode.trim()} className={primaryBtn}>
+                {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Join'}
               </button>
-            </form>
-          </section>
-
-          {/* Security */}
-          <section className={`${card} fade-up`}>
-            <SectionTitle icon={<Shield className="h-5 w-5" />} title="Security" />
-            <form onSubmit={changePassword} className="space-y-4">
-              <div>
-                <label className={labelCls}>Current password</label>
-                <input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoComplete="current-password" className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>New password</label>
-                <input
-                  type="password"
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  autoComplete="new-password"
-                  placeholder="At least 8 characters"
-                  className={inputCls}
-                />
-              </div>
-              <button type="submit" disabled={savingPw || !currentPw || newPw.length < 8} className={primaryBtn}>
-                {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} Change password
+            </div>
+          </form>
+          <div className="h-px bg-black/10 dark:bg-white/10" />
+          <form onSubmit={create}>
+            <BentoHeader icon={<Plus className="h-5 w-5" />} title="New workspace" subtitle="Start fresh for another team" />
+            <div className="flex gap-2">
+              <input value={newWsName} onChange={(e) => setNewWsName(e.target.value)} placeholder="e.g. Hackathon team" className={inputCls} maxLength={80} />
+              <button type="submit" disabled={creating || !newWsName.trim()} className={primaryBtn}>
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
               </button>
-            </form>
-          </section>
-        </div>
+            </div>
+          </form>
+        </Bento>
       </main>
     </div>
   );

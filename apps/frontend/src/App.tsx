@@ -23,7 +23,7 @@ import { api } from './services/api';
  */
 
 const FullPageSpinner: React.FC = () => (
-  <div className="flex min-h-screen items-center justify-center gap-2 bg-[#08090d] text-sm text-zinc-400">
+  <div className="flex min-h-screen items-center justify-center gap-2 bg-white text-sm text-zinc-500 dark:bg-black dark:text-zinc-400">
     <Loader2 className="h-5 w-5 animate-spin" />
     Loading…
   </div>
@@ -49,14 +49,12 @@ const RequireAuth: React.FC = () => {
 };
 
 const MarketingLayout: React.FC = () => (
-  <ThemeProvider>
-    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300">
-      <Navbar />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-    </div>
-  </ThemeProvider>
+  <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300">
+    <Navbar />
+    <main className="flex-1">
+      <Outlet />
+    </main>
+  </div>
 );
 
 const Home: React.FC = () => {
@@ -95,10 +93,13 @@ const JoinRoute: React.FC = () => {
 
   if (!error) return <FullPageSpinner />;
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#08090d] px-4 text-center text-zinc-200">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-white px-4 text-center text-zinc-800 dark:bg-black dark:text-zinc-200">
       <p className="text-lg font-semibold">Couldn't join that workspace</p>
       <p className="text-sm text-zinc-400">{error}</p>
-      <button onClick={() => navigate('/app')} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-zinc-950">
+      <button
+        onClick={() => navigate('/app')}
+        className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-black"
+      >
         Go to my workspace
       </button>
     </div>
@@ -107,38 +108,40 @@ const JoinRoute: React.FC = () => {
 
 export const App: React.FC = () => (
   <BrowserRouter>
-    <AuthProvider>
-      <ToastProvider>
-        <ScrollToTop />
-        <Routes>
-          <Route element={<MarketingLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/roadmap" element={<RoadmapPage />} />
-            <Route
-              path="/pricing"
-              element={
-                <ComingSoonPage
-                  title="Pricing Tiers"
-                  subtitle="Our transparent, team-friendly pricing tiers will be unveiled soon. Enter your email for early access."
-                  onBack={() => window.history.back()}
-                />
-              }
-            />
-          </Route>
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <ScrollToTop />
+          <Routes>
+            <Route element={<MarketingLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/roadmap" element={<RoadmapPage />} />
+              <Route
+                path="/pricing"
+                element={
+                  <ComingSoonPage
+                    title="Pricing Tiers"
+                    subtitle="Our transparent, team-friendly pricing tiers will be unveiled soon. Enter your email for early access."
+                    onBack={() => window.history.back()}
+                  />
+                }
+              />
+            </Route>
 
-          <Route path="/login" element={<AuthPage mode="SIGN_IN" />} />
-          <Route path="/signup" element={<AuthPage mode="SIGN_UP" />} />
+            <Route path="/login" element={<AuthPage mode="SIGN_IN" />} />
+            <Route path="/signup" element={<AuthPage mode="SIGN_UP" />} />
 
-          <Route element={<RequireAuth />}>
-            <Route path="/app" element={<WorkspaceApp />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/join/:code" element={<JoinRoute />} />
-          </Route>
+            <Route element={<RequireAuth />}>
+              <Route path="/app" element={<WorkspaceApp />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/join/:code" element={<JoinRoute />} />
+            </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </ToastProvider>
-    </AuthProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </BrowserRouter>
 );
 

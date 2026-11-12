@@ -367,3 +367,68 @@
 @media (prefers-reduced-motion: reduce) {
   .toast-in, .modal-in, .fade-up, .flash-in { animation: none; }
 }
+
+/* ---------- App design system: bento cards with cursor spotlight ---------- */
+:root {
+  --spot-fill: rgba(0, 0, 0, 0.06);
+  --spot-border: rgba(0, 0, 0, 0.35);
+  --page-spot: rgba(0, 0, 0, 0.05);
+  --page-glow: rgba(16, 185, 129, 0.07);
+}
+.dark {
+  --spot-fill: rgba(255, 255, 255, 0.065);
+  --spot-border: rgba(255, 255, 255, 0.38);
+  --page-spot: rgba(255, 255, 255, 0.06);
+  --page-glow: rgba(16, 185, 129, 0.09);
+}
+
+/* Card: soft glow under the cursor + a highlighted border near the cursor. */
+.bento {
+  position: relative;
+  isolation: isolate;
+}
+.bento::before,
+.bento::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.bento::before {
+  z-index: -1;
+  background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 50%), var(--spot-fill), transparent 42%);
+}
+.bento::after {
+  padding: 1px;
+  background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), var(--spot-border), transparent 45%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.bento:hover::before,
+.bento:hover::after {
+  opacity: 1;
+}
+
+/* Page backdrop: faded grid + top spotlight + a large soft light that follows the cursor. */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px circle at var(--px, 50%) var(--py, 0%), var(--page-spot), transparent 55%),
+    radial-gradient(ellipse 60% 45% at 50% -10%, var(--page-glow), transparent 70%);
+  transition: background 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bento::before,
+  .bento::after,
+  .app-backdrop {
+    transition: none;
+  }
+}

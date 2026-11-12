@@ -17,7 +17,6 @@ import {
   Flame,
   GitBranch,
   GitCommit,
-  Layers,
   Link2,
   Loader2,
   Plus,
@@ -32,7 +31,23 @@ import {
 import { api, ApiError } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useRealtime } from '../hooks/useRealtime';
-import { Avatar, GithubIcon, Modal, ghostBtn, inputCls, labelCls, primaryBtn, useToast } from '../components/ui';
+import {
+  AppBackdrop,
+  Avatar,
+  Bento,
+  BentoHeader,
+  GithubIcon,
+  Modal,
+  RingGauge,
+  chipCls,
+  ghostBtn,
+  inputCls,
+  labelCls,
+  primaryBtn,
+  useToast,
+  wellCls,
+} from '../components/ui';
+import { AppHeader } from '../components/AppHeader';
 import type {
   ActivityRecord,
   ActivityType,
@@ -75,33 +90,43 @@ const upsert = <T extends { id: string }>(list: T[], item: T, prepend = true) =>
   list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : prepend ? [item, ...list] : [...list, item];
 
 const PRIORITY_STYLE: Record<TaskPriority, string> = {
-  URGENT: 'bg-red-500/15 text-red-300 border-red-500/30',
-  HIGH: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
-  MEDIUM: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  LOW: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
+  URGENT: 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300',
+  HIGH: 'border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-300',
+  MEDIUM: 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  LOW: 'border-black/10 bg-zinc-100 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300',
 };
 const STATUS_STYLE: Record<TaskStatus, string> = {
-  TODO: 'border-zinc-700 bg-zinc-900 text-zinc-300',
-  IN_PROGRESS: 'border-amber-500/40 bg-amber-500/10 text-amber-200',
-  DONE: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+  TODO: 'border-black/10 bg-white text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300',
+  IN_PROGRESS: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+  DONE: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
 };
 const CATEGORY_STYLE: Record<EventCategory, string> = {
-  STANDUP: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  REVIEW: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  DEADLINE: 'bg-red-500/15 text-red-300 border-red-500/30',
-  SYNC: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  STANDUP: 'border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300',
+  REVIEW: 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  DEADLINE: 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300',
+  SYNC: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
 };
 const ACTIVITY_DOT: Partial<Record<ActivityType, string>> = {
-  TASK_COMPLETED: 'bg-emerald-400',
-  TASK_CREATED: 'bg-sky-400',
-  TASK_DELETED: 'bg-red-400',
-  COMMIT_PUSHED: 'bg-violet-400',
-  COMMITS_SYNCED: 'bg-violet-400',
-  EVENT_SCHEDULED: 'bg-amber-400',
-  MEMBER_JOINED: 'bg-pink-400',
+  TASK_COMPLETED: 'bg-emerald-500',
+  TASK_CREATED: 'bg-sky-500',
+  TASK_DELETED: 'bg-red-500',
+  COMMIT_PUSHED: 'bg-violet-500',
+  COMMITS_SYNCED: 'bg-violet-500',
+  EVENT_SCHEDULED: 'bg-amber-500',
+  MEMBER_JOINED: 'bg-pink-500',
+};
+const ROLE_STYLE: Record<string, string> = {
+  OWNER: 'text-violet-600 dark:text-violet-300',
+  ADMIN: 'text-sky-600 dark:text-sky-300',
+  MEMBER: 'text-zinc-500 dark:text-zinc-400',
+  VIEWER: 'text-zinc-400 dark:text-zinc-500',
 };
 
-const panel = 'rounded-2xl border border-zinc-800 bg-[#12141d]/90 shadow-lg';
+/** List row inside a bento tile. */
+const rowCls =
+  'rounded-2xl border border-black/[0.07] bg-white p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-black/20 dark:border-white/[0.07] dark:bg-black/50 dark:hover:border-white/20';
+const iconBtn =
+  'rounded-lg p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-black dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-white';
 
 // ==========================================
 // WORKSPACE SWITCHER
@@ -116,19 +141,20 @@ const WorkspaceSwitcher: React.FC<{ onJoin: () => void; onCreate: () => void }> 
     return () => document.removeEventListener('mousedown', close);
   }, []);
   if (!activeWorkspace) return null;
+  const item = 'flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900';
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative min-w-0" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 py-1.5 pl-1.5 pr-3 text-left transition hover:border-zinc-700"
+        className="flex min-w-0 max-w-full items-center gap-2 rounded-xl border border-black/10 bg-white py-1.5 pl-1.5 pr-2.5 text-left shadow-sm transition hover:border-black/25 dark:border-white/10 dark:bg-zinc-950 dark:hover:border-white/25"
       >
-        <Avatar name={activeWorkspace.name} size="xs" className="rounded-lg" />
-        <span className="max-w-[160px] truncate text-sm font-semibold text-white">{activeWorkspace.name}</span>
-        <ChevronDown className={`h-4 w-4 text-zinc-400 transition ${open ? 'rotate-180' : ''}`} />
+        <Avatar name={activeWorkspace.name} size="xs" className="!rounded-lg !ring-0" />
+        <span className="min-w-0 max-w-[6.5rem] truncate text-sm font-semibold text-zinc-900 dark:text-white sm:max-w-[12rem]">{activeWorkspace.name}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-400 transition ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="modal-in absolute left-0 top-full z-40 mt-2 w-72 overflow-hidden rounded-xl border border-zinc-800 bg-[#13151f] shadow-2xl">
-          <div className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Your workspaces</div>
+        <div className="modal-in absolute left-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl dark:border-white/10 dark:bg-zinc-950">
+          <div className="px-3.5 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Your workspaces</div>
           <div className="max-h-64 overflow-y-auto p-1.5">
             {workspaces.map((w) => (
               <button
@@ -137,22 +163,22 @@ const WorkspaceSwitcher: React.FC<{ onJoin: () => void; onCreate: () => void }> 
                   setActiveWorkspaceId(w.id);
                   setOpen(false);
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-zinc-800/70"
+                className={item}
               >
-                <Avatar name={w.name} size="xs" className="rounded-lg" />
-                <span className="flex-1 truncate text-zinc-200">{w.name}</span>
-                <span className="text-xs text-zinc-500">{w.role.toLowerCase()}</span>
-                {w.id === activeWorkspace.id && <Check className="h-4 w-4 text-violet-400" />}
+                <Avatar name={w.name} size="xs" className="!rounded-lg !ring-0" />
+                <span className="flex-1 truncate">{w.name}</span>
+                <span className="text-xs text-zinc-400">{w.role.toLowerCase()}</span>
+                {w.id === activeWorkspace.id && <Check className="h-4 w-4 text-emerald-500" />}
               </button>
             ))}
           </div>
-          <div className="border-t border-zinc-800 p-1.5">
+          <div className="border-t border-black/10 p-1.5 dark:border-white/10">
             <button
               onClick={() => {
                 setOpen(false);
                 onJoin();
               }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-zinc-200 hover:bg-zinc-800/70"
+              className={item}
             >
               <UserPlus className="h-4 w-4 text-zinc-400" /> Join with invite code
             </button>
@@ -161,7 +187,7 @@ const WorkspaceSwitcher: React.FC<{ onJoin: () => void; onCreate: () => void }> 
                 setOpen(false);
                 onCreate();
               }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-zinc-200 hover:bg-zinc-800/70"
+              className={item}
             >
               <Plus className="h-4 w-4 text-zinc-400" /> Create workspace
             </button>
@@ -194,6 +220,8 @@ export const WorkspaceApp: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickBusy, setQuickBusy] = useState(false);
 
   const github = integrations.find((i) => i.provider === 'github');
   const google = integrations.find((i) => i.provider === 'google');
@@ -347,8 +375,8 @@ export const WorkspaceApp: React.FC = () => {
   const inProgress = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
   const overdue = tasks.filter((t) => isOverdue(t, today)).length;
   const completionRate = total ? Math.round((done / total) * 100) : 0;
-  const healthScore = total ? Math.max(0, Math.min(100, Math.round(completionRate * 0.7 + Math.max(0, 100 - overdue * 25) * 0.3))) : 100;
-  const healthColor = healthScore >= 70 ? 'from-emerald-400 to-teal-400' : healthScore >= 40 ? 'from-amber-400 to-orange-400' : 'from-red-500 to-rose-400';
+  // On-time share weighs 70%, completion 30% (same as backend telemetry).
+  const healthScore = total ? Math.round((1 - overdue / total) * 70 + completionRate * 0.3) : 100;
 
   const filteredTasks = tasks.filter((t) =>
     statusFilter === 'ALL' ? true : statusFilter === 'OVERDUE' ? isOverdue(t, today) : t.status === statusFilter
@@ -406,6 +434,23 @@ export const WorkspaceApp: React.FC = () => {
     }
   };
 
+  const quickAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = quickTitle.trim();
+    if (!title || !workspaceId) return;
+    setQuickBusy(true);
+    try {
+      const t = await api.createTask(workspaceId, { title });
+      setTasks((p) => upsert(p, t));
+      markFresh(t.id);
+      setQuickTitle('');
+    } catch (err) {
+      fail(err);
+    } finally {
+      setQuickBusy(false);
+    }
+  };
+
   const syncNow = async () => {
     if (!workspaceId) return;
     setSyncing(true);
@@ -423,209 +468,245 @@ export const WorkspaceApp: React.FC = () => {
   // ---------- render ----------
   if (!workspace || !user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#08090d] px-4 text-center text-zinc-300">
-        <p className="text-lg">You're not in any workspace yet.</p>
-        <Link to="/profile" className={primaryBtn}>
-          Create or join one
-        </Link>
+      <div className="relative min-h-screen bg-white text-zinc-900 dark:bg-black dark:text-zinc-100">
+        <AppBackdrop />
+        <div className="relative z-10 flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
+          <p className="text-lg">You're not in any workspace yet.</p>
+          <Link to="/profile" className={primaryBtn}>
+            Create or join one
+          </Link>
+        </div>
       </div>
     );
   }
 
   const kpis = [
-    { label: 'Total Tasks', value: total, hint: 'In the backlog', icon: <CheckSquare className="h-4 w-4" />, tint: 'text-sky-300 bg-sky-500/10' },
-    { label: 'In Progress', value: inProgress, hint: 'Being worked on', icon: <Clock className="h-4 w-4" />, tint: 'text-amber-300 bg-amber-500/10' },
-    { label: 'Completed', value: done, hint: `${completionRate}% finished`, icon: <CheckCircle2 className="h-4 w-4" />, tint: 'text-emerald-300 bg-emerald-500/10' },
-    { label: 'Overdue', value: overdue, hint: 'Missed deadline', icon: <AlertTriangle className="h-4 w-4" />, tint: overdue ? 'text-red-300 bg-red-500/10' : 'text-zinc-400 bg-zinc-500/10' },
+    { label: 'Total tasks', value: total, icon: <CheckSquare className="h-4 w-4" />, tint: 'text-sky-600 dark:text-sky-300' },
+    { label: 'In progress', value: inProgress, icon: <Clock className="h-4 w-4" />, tint: 'text-amber-600 dark:text-amber-300' },
+    { label: 'Completed', value: done, icon: <CheckCircle2 className="h-4 w-4" />, tint: 'text-emerald-600 dark:text-emerald-300' },
+    {
+      label: 'Overdue',
+      value: overdue,
+      icon: <AlertTriangle className="h-4 w-4" />,
+      tint: overdue ? 'text-red-600 dark:text-red-300' : 'text-zinc-400 dark:text-zinc-500',
+    },
   ];
+  const healthTone = healthScore >= 70 ? 'good' : healthScore >= 40 ? 'warn' : 'bad';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const onlineIds = new Set(presence.map((p) => p.userId));
 
   return (
-    <div className="min-h-screen bg-[#08090d] font-sans text-zinc-100 antialiased selection:bg-violet-500/30">
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-80 bg-gradient-to-b from-violet-600/[0.07] via-indigo-500/[0.04] to-transparent" />
+    <div className="relative min-h-screen bg-white font-sans text-zinc-900 antialiased transition-colors duration-300 selection:bg-black selection:text-white dark:bg-black dark:text-zinc-100 dark:selection:bg-white dark:selection:text-black">
+      <AppBackdrop />
 
-      {/* ================= HEADER ================= */}
-      <header className="sticky top-0 z-30 border-b border-zinc-800/80 bg-[#0c0d13]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Link to="/" title="Syncro home" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-zinc-950 shadow-sm transition hover:scale-105">
-              <Layers className="h-5 w-5" />
-            </Link>
-            <WorkspaceSwitcher onJoin={() => setModal('join')} onCreate={() => setModal('create')} />
-            <span className="hidden items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900/60 px-2.5 py-1 text-xs text-zinc-300 sm:flex">
+      <AppHeader
+        left={<WorkspaceSwitcher onJoin={() => setModal('join')} onCreate={() => setModal('create')} />}
+        right={
+          <>
+            <span className="hidden items-center gap-1.5 rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-300 lg:flex">
               <span
                 className={`h-2 w-2 rounded-full ${
-                  realtimeStatus === 'connected' ? 'bg-emerald-400' : realtimeStatus === 'connecting' ? 'animate-pulse bg-amber-400' : 'bg-red-400'
+                  realtimeStatus === 'connected' ? 'animate-pulse bg-emerald-500' : realtimeStatus === 'connecting' ? 'animate-pulse bg-amber-500' : 'bg-red-500'
                 }`}
               />
               {realtimeStatus === 'connected' ? 'Live' : realtimeStatus === 'connecting' ? 'Connecting' : 'Offline'}
             </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden -space-x-2 sm:flex" title={`${presence.length} online`}>
-              {presence.slice(0, 5).map((p) => (
-                <Avatar
-                  key={p.userId}
-                  name={p.name}
-                  size="sm"
-                  online
-                  title={`${p.name}${p.typing ? ' · typing…' : p.viewing ? ` · ${p.viewing}` : ''}`}
-                />
-              ))}
-              {presence.length > 5 && <span className="pl-3 text-xs text-zinc-400">+{presence.length - 5}</span>}
-            </div>
             {workspace.inviteCode && (
-              <button onClick={() => setModal('invite')} className={ghostBtn}>
-                <UserPlus className="h-4 w-4" /> <span className="hidden sm:inline">Invite</span>
+              <button onClick={() => setModal('invite')} className={`${ghostBtn} hidden sm:inline-flex`}>
+                <UserPlus className="h-4 w-4" /> Invite
               </button>
             )}
-            <Link to="/profile" title="Profile & integrations" className="transition hover:scale-105">
-              <Avatar name={user.name} size="md" />
-            </Link>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
-      <main className="relative mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6">
-        {/* Greeting */}
-        <div className="fade-up flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}, {user.name.split(' ')[0]} 👋
-            </h1>
-            <p className="mt-1 text-base text-zinc-400">
-              {overdue
-                ? `${overdue} task${overdue === 1 ? ' is' : 's are'} overdue — let's clear ${overdue === 1 ? 'it' : 'them'}.`
-                : total
-                ? `${inProgress} in progress, ${done} done. Keep the momentum going.`
-                : 'Your board is fresh. Add the first task to get started.'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
-            <Users className="h-4 w-4" /> {members.length} member{members.length === 1 ? '' : 's'} · {presence.length} online
-          </div>
-        </div>
-
-        {/* ================= KPIs ================= */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          {kpis.map((k, i) => (
-            <div key={k.label} className={`${panel} fade-up p-5 transition hover:-translate-y-0.5 hover:border-zinc-700`} style={{ animationDelay: `${i * 50}ms` }}>
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-400">{k.label}</span>
-                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${k.tint}`}>{k.icon}</span>
-              </div>
-              <div className="text-3xl font-bold text-white">{loading ? '–' : k.value}</div>
-              <div className="mt-1 text-sm text-zinc-500">{k.hint}</div>
-            </div>
-          ))}
-          <div className={`${panel} fade-up col-span-2 p-5 lg:col-span-1`} style={{ animationDelay: '200ms' }}>
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-medium text-zinc-400">Sprint Health</span>
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500/10 text-pink-300">
-                <Flame className="h-4 w-4" />
+      <main className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-6 sm:px-6 lg:grid-cols-12 lg:gap-5">
+        {/* ================= HERO ================= */}
+        <Bento className="fade-up lg:col-span-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-white/10 dark:bg-black dark:text-zinc-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {workspace.name}
               </span>
+              <h1 className="text-3xl font-extrabold tracking-tight text-black dark:text-white sm:text-4xl">
+                {greeting}, {user.name.split(' ')[0]}.
+              </h1>
+              <p className="mt-2 max-w-xl text-base text-zinc-500 dark:text-zinc-400">
+                {overdue
+                  ? `${overdue} task${overdue === 1 ? ' is' : 's are'} overdue — let's clear ${overdue === 1 ? 'it' : 'them'} first.`
+                  : total
+                  ? `${inProgress} in progress and ${done} done. Keep the momentum going.`
+                  : 'Your board is fresh. Add the first task to get your team moving.'}
+              </p>
             </div>
-            <div className="text-3xl font-bold text-white">{healthScore}%</div>
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div className={`h-full rounded-full bg-gradient-to-r ${healthColor} transition-all duration-700`} style={{ width: `${healthScore}%` }} />
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-2">
+                {presence.slice(0, 4).map((p) => (
+                  <Avatar key={p.userId} name={p.name} size="sm" online title={`${p.name}${p.typing ? ' · typing…' : ' · online'}`} />
+                ))}
+              </div>
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">{presence.length} online</span>
             </div>
           </div>
-        </div>
 
-        {/* ================= COCKPIT ================= */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* ---------- TASK BOARD ---------- */}
-          <section className="space-y-4 lg:col-span-7">
-            <div className={`${panel} flex flex-wrap items-center justify-between gap-3 p-5`}>
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-                  <CheckSquare className="h-5 w-5 text-sky-300" /> Sprint Deliverables
-                </h2>
-                <p className="text-sm text-zinc-400">Track deliverables, priorities and owners</p>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {kpis.map((k) => (
+              <div key={k.label} className={`${rowCls} !p-4`}>
+                <div className={`mb-2 flex items-center gap-1.5 text-sm font-medium ${k.tint}`}>
+                  {k.icon}
+                  <span className="text-zinc-500 dark:text-zinc-400">{k.label}</span>
+                </div>
+                <div className="text-3xl font-bold tabular-nums text-black dark:text-white">{loading ? '–' : k.value}</div>
               </div>
-              {canWrite && (
-                <button onClick={() => setModal('task')} className={primaryBtn}>
-                  <Plus className="h-4 w-4" /> Add Task
+            ))}
+          </div>
+
+          {canWrite && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button onClick={() => setModal('task')} className={primaryBtn}>
+                <Plus className="h-4 w-4" /> New task
+              </button>
+              <button onClick={() => setModal('event')} className={ghostBtn}>
+                <Calendar className="h-4 w-4" /> Schedule
+              </button>
+              {workspace.inviteCode && (
+                <button onClick={() => setModal('invite')} className={ghostBtn}>
+                  <UserPlus className="h-4 w-4" /> Invite teammates
                 </button>
               )}
             </div>
+          )}
+        </Bento>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Filter className="h-4 w-4 text-zinc-500" />
-                {(['ALL', 'TODO', 'IN_PROGRESS', 'DONE', 'OVERDUE'] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setStatusFilter(f)}
-                    className={`rounded-full px-3 py-1 text-sm font-medium transition ${
-                      statusFilter === f ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                    }`}
-                  >
-                    {f.replace('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
-                  </button>
-                ))}
-              </div>
-              <span className="text-zinc-500">{filteredTasks.length} tasks</span>
-            </div>
-
-            <div className="space-y-3">
-              {loading ? (
-                [0, 1, 2].map((i) => <div key={i} className={`${panel} h-32 animate-pulse`} />)
-              ) : filteredTasks.length === 0 ? (
-                <div className={`${panel} p-12 text-center`}>
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-300">
-                    <CheckSquare className="h-6 w-6" />
+        {/* ================= HEALTH ================= */}
+        <Bento className="fade-up flex flex-col lg:col-span-4" style={{ animationDelay: '60ms' }}>
+          <BentoHeader icon={<Flame className="h-5 w-5" />} title="Sprint health" subtitle="Completion vs. overdue work" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row lg:flex-col xl:flex-row">
+            <RingGauge value={healthScore} tone={healthTone}>
+              <span className="text-3xl font-extrabold tabular-nums text-black dark:text-white">{healthScore}%</span>
+              <span className="text-xs font-medium text-zinc-500">{healthTone === 'good' ? 'Healthy' : healthTone === 'warn' ? 'At risk' : 'Critical'}</span>
+            </RingGauge>
+            <dl className="w-full max-w-[12rem] space-y-3 text-sm">
+              {[
+                { k: 'Completion', v: `${completionRate}%`, bar: completionRate, color: 'bg-emerald-500' },
+                { k: 'In progress', v: inProgress, bar: total ? (inProgress / total) * 100 : 0, color: 'bg-amber-500' },
+                { k: 'Overdue', v: overdue, bar: total ? (overdue / total) * 100 : 0, color: 'bg-red-500' },
+              ].map((r) => (
+                <div key={r.k}>
+                  <div className="mb-1 flex justify-between">
+                    <dt className="text-zinc-500 dark:text-zinc-400">{r.k}</dt>
+                    <dd className="font-semibold tabular-nums text-black dark:text-white">{r.v}</dd>
                   </div>
-                  <h3 className="mb-1 text-base font-semibold text-zinc-200">{tasks.length ? 'Nothing in this view' : 'Your board is empty'}</h3>
-                  <p className="mx-auto mb-4 max-w-sm text-sm text-zinc-500">
-                    {tasks.length ? 'No tasks match the active filter.' : 'Add the first deliverable for your team.'}
-                  </p>
-                  {!tasks.length && canWrite && (
-                    <button onClick={() => setModal('task')} className={primaryBtn}>
-                      Create first task
-                    </button>
-                  )}
+                  <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
+                    <div className={`h-full rounded-full ${r.color} transition-all duration-700`} style={{ width: `${r.bar}%` }} />
+                  </div>
                 </div>
-              ) : (
-                filteredTasks.map((task) => {
-                  const late = isOverdue(task, today);
-                  return (
-                    <article
-                      key={task.id}
-                      className={`${panel} group p-5 transition hover:-translate-y-0.5 hover:border-zinc-700 ${freshIds.has(task.id) ? 'flash-in' : ''} ${
-                        task.status === 'DONE' ? 'opacity-75' : ''
+              ))}
+            </dl>
+          </div>
+        </Bento>
+
+        {/* ================= TASKS ================= */}
+        <Bento className="fade-up flex flex-col lg:col-span-8 lg:row-span-2" style={{ animationDelay: '120ms' }}>
+          <BentoHeader
+            icon={<CheckSquare className="h-5 w-5" />}
+            title="Sprint deliverables"
+            subtitle={`${filteredTasks.length} of ${tasks.length} tasks`}
+            action={
+              canWrite && (
+                <button onClick={() => setModal('task')} className={primaryBtn}>
+                  <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add task</span>
+                </button>
+              )
+            }
+          />
+
+          <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-2xl border border-black/10 bg-zinc-100 p-1 text-sm dark:border-white/10 dark:bg-black/60">
+            <Filter className="ml-2 mr-1 h-4 w-4 text-zinc-400" />
+            {(['ALL', 'TODO', 'IN_PROGRESS', 'DONE', 'OVERDUE'] as const).map((f) => {
+              const count =
+                f === 'ALL' ? tasks.length : f === 'OVERDUE' ? overdue : tasks.filter((t) => t.status === f).length;
+              return (
+                <button
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-medium transition ${
+                    statusFilter === f
+                      ? 'bg-white text-black shadow-sm dark:bg-zinc-900 dark:text-white'
+                      : 'text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white'
+                  }`}
+                >
+                  {f.replace('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+                  <span className="text-xs tabular-nums text-zinc-400">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="-mr-2 max-h-[46rem] flex-1 space-y-2.5 overflow-y-auto pr-2">
+            {loading ? (
+              [0, 1, 2].map((i) => <div key={i} className={`${rowCls} h-28 animate-pulse`} />)
+            ) : filteredTasks.length === 0 ? (
+              <div className={`${wellCls} flex flex-col items-center px-6 py-14 text-center`}>
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-900">
+                  <CheckSquare className="h-6 w-6 text-zinc-500" />
+                </div>
+                <h3 className="mb-1 text-base font-semibold text-black dark:text-white">{tasks.length ? 'Nothing in this view' : 'Your board is empty'}</h3>
+                <p className="mb-4 max-w-sm text-sm text-zinc-500">{tasks.length ? 'No tasks match the active filter.' : 'Add the first deliverable for your team.'}</p>
+                {!tasks.length && canWrite && (
+                  <button onClick={() => setModal('task')} className={primaryBtn}>
+                    <Plus className="h-4 w-4" /> Create first task
+                  </button>
+                )}
+              </div>
+            ) : (
+              filteredTasks.map((task) => {
+                const late = isOverdue(task, today);
+                const isDone = task.status === 'DONE';
+                return (
+                  <article key={task.id} className={`${rowCls} group flex gap-3 ${freshIds.has(task.id) ? 'flash-in' : ''}`}>
+                    <button
+                      disabled={!canWrite}
+                      onClick={() => updateStatus(task.id, isDone ? 'TODO' : 'DONE')}
+                      title={isDone ? 'Mark as to do' : 'Mark as done'}
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                        isDone
+                          ? 'border-emerald-500 bg-emerald-500 text-white'
+                          : 'border-zinc-300 text-transparent hover:border-emerald-500 hover:text-emerald-500 dark:border-zinc-700'
                       }`}
                     >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs font-medium text-zinc-300">
-                          {task.label || 'General'}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${PRIORITY_STYLE[task.priority]}`}>{task.priority}</span>
+                      <Check className="h-3 w-3 stroke-[3]" />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className={`text-[0.95rem] font-semibold leading-snug ${isDone ? 'text-zinc-400 line-through' : 'text-black dark:text-zinc-100'}`}>
+                          {task.title}
+                        </h3>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span className={`rounded-lg border px-2 py-0.5 text-xs font-semibold ${PRIORITY_STYLE[task.priority]}`}>
+                            {task.priority[0] + task.priority.slice(1).toLowerCase()}
+                          </span>
                           {canWrite && (
-                            <button
-                              onClick={() => deleteTask(task.id)}
-                              className="rounded p-1 text-zinc-600 opacity-0 transition hover:bg-red-500/10 hover:text-red-300 group-hover:opacity-100"
-                              title="Delete task"
-                            >
+                            <button onClick={() => deleteTask(task.id)} className={`${iconBtn} opacity-0 hover:!text-red-500 group-hover:opacity-100`} title="Delete task">
                               <Trash2 className="h-4 w-4" />
                             </button>
                           )}
                         </div>
                       </div>
-                      <h3 className={`text-base font-semibold ${task.status === 'DONE' ? 'text-zinc-400 line-through' : 'text-zinc-100'}`}>{task.title}</h3>
-                      {task.description && <p className="mt-1 text-sm leading-relaxed text-zinc-400">{task.description}</p>}
-
-                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/80 pt-3">
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-400">
-                          <span className="flex items-center gap-2">
-                            {task.assignee ? <Avatar name={task.assignee.name} size="xs" /> : null}
-                            <span className="text-zinc-300">{task.assignee?.name ?? 'Unassigned'}</span>
+                      {task.description && <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{task.description}</p>}
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className={chipCls}>{task.label || 'General'}</span>
+                          <span className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
+                            {task.assignee && <Avatar name={task.assignee.name} size="xs" className="!ring-0" />}
+                            {task.assignee?.name ?? 'Unassigned'}
                           </span>
                           {task.dueDate && (
                             <span
-                              className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-xs ${
-                                late ? 'bg-red-500/15 font-semibold text-red-300' : 'bg-zinc-900 text-zinc-400'
+                              className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium ${
+                                late ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'bg-black/[0.04] text-zinc-500 dark:bg-white/[0.06] dark:text-zinc-400'
                               }`}
                             >
                               <Calendar className="h-3.5 w-3.5" />
@@ -645,286 +726,325 @@ export const WorkspaceApp: React.FC = () => {
                           <option value="DONE">Done</option>
                         </select>
                       </div>
-                    </article>
-                  );
-                })
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+
+          {/* Quick add + progress footer — anchors the tile when there are few tasks */}
+          <div className="mt-auto space-y-4 pt-4">
+            {canWrite && (
+              <form onSubmit={quickAdd} className="flex items-center gap-2 rounded-2xl border border-dashed border-black/15 bg-white/60 py-1.5 pl-4 pr-1.5 transition focus-within:border-black/40 dark:border-white/15 dark:bg-black/30 dark:focus-within:border-white/40">
+                <Plus className="h-4 w-4 shrink-0 text-zinc-400" />
+                <input
+                  value={quickTitle}
+                  onChange={(e) => setQuickTitle(e.target.value)}
+                  onFocus={() => updatePresence({ viewing: 'tasks' })}
+                  placeholder="Quick add a task — press Enter"
+                  className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-black placeholder-zinc-400 focus:outline-none dark:text-white dark:placeholder-zinc-500"
+                  maxLength={200}
+                />
+                <button type="submit" disabled={!quickTitle.trim() || quickBusy} className={`${primaryBtn} !px-3 !py-1.5`}>
+                  {quickBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+                </button>
+              </form>
+            )}
+            <div>
+              <div className="mb-1.5 flex justify-between text-xs font-medium text-zinc-500">
+                <span>
+                  {total - done} open · {done} done
+                </span>
+                <span className="tabular-nums">{completionRate}% complete</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
+                <div className="h-full rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${completionRate}%` }} />
+              </div>
+            </div>
+          </div>
+        </Bento>
+
+        {/* ================= CALENDAR ================= */}
+        <Bento className="fade-up lg:col-span-4" style={{ animationDelay: '180ms' }}>
+          <BentoHeader
+            icon={<Calendar className="h-5 w-5" />}
+            title="Team calendar"
+            subtitle={googleReady ? `+ Google · ${google!.accountLabel}` : 'Workspace events'}
+            action={
+              canWrite && (
+                <button onClick={() => setModal('event')} className={`${ghostBtn} !px-2.5`} title="Schedule event">
+                  <Plus className="h-4 w-4" />
+                </button>
+              )
+            }
+          />
+          <div className={`${wellCls} p-3`}>
+            <div className="mb-2 flex items-center justify-between">
+              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className={iconBtn} aria-label="Previous month">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-semibold text-black dark:text-white">{month.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</span>
+              <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className={iconBtn} aria-label="Next month">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mb-1 grid grid-cols-7 text-center text-xs font-semibold text-zinc-400">
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                <span key={i} className="py-1">
+                  {d}
+                </span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5 text-center text-sm">
+              {Array.from({ length: firstDow }).map((_, i) => (
+                <div key={`b${i}`} />
+              ))}
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                const d = new Date(month.getFullYear(), month.getMonth(), day);
+                const isToday = sameDay(d, new Date());
+                const isSel = sameDay(d, selectedDate);
+                const has = dayHas(day);
+                return (
+                  <button
+                    key={day}
+                    onClick={() => setSelectedDate(d)}
+                    className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-xl tabular-nums transition ${
+                      isSel
+                        ? 'bg-black font-bold text-white dark:bg-white dark:text-black'
+                        : isToday
+                        ? 'font-bold text-emerald-600 ring-1 ring-emerald-500/50 dark:text-emerald-400'
+                        : 'text-zinc-600 hover:bg-black/[0.05] dark:text-zinc-400 dark:hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    {day}
+                    <span className="absolute bottom-1 flex gap-0.5">
+                      {has.team && <span className={`h-1 w-1 rounded-full ${isSel ? 'bg-white dark:bg-black' : 'bg-violet-500'}`} />}
+                      {has.google && <span className="h-1 w-1 rounded-full bg-sky-500" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between px-1 text-sm">
+              <span className="font-semibold text-black dark:text-white">
+                {selectedDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+              </span>
+              <span className="text-zinc-400">{dayTeamEvents.length + dayGoogleEvents.length} event(s)</span>
+            </div>
+            {dayTeamEvents.length + dayGoogleEvents.length === 0 ? (
+              <div className={`${wellCls} border-dashed p-4 text-center text-sm text-zinc-400`}>Nothing scheduled.</div>
+            ) : (
+              <div className="max-h-60 space-y-2 overflow-y-auto">
+                {dayTeamEvents.map((ev) => (
+                  <div key={ev.id} className={`${rowCls} group !p-3`}>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={`rounded-lg border px-2 py-0.5 font-semibold ${CATEGORY_STYLE[ev.category]}`}>{ev.category[0] + ev.category.slice(1).toLowerCase()}</span>
+                      <span className="flex items-center gap-1 text-zinc-500">
+                        <Clock className="h-3.5 w-3.5" /> {fmtTime(ev.startsAt)}
+                      </span>
+                    </div>
+                    <h4 className="mt-1.5 text-sm font-semibold text-black dark:text-zinc-100">{ev.title}</h4>
+                    <div className="mt-1 flex items-center justify-between text-xs text-zinc-500">
+                      <span className="flex min-w-0 items-center gap-1 truncate">
+                        <Video className="h-3.5 w-3.5 shrink-0" />
+                        {ev.location && /^https?:\/\//.test(ev.location) ? (
+                          <a href={ev.location} target="_blank" rel="noreferrer" className="truncate font-medium text-black underline-offset-2 hover:underline dark:text-white">
+                            Join call
+                          </a>
+                        ) : (
+                          <span className="truncate">{ev.location || 'No location'}</span>
+                        )}
+                        {ev.googleEventId && <span className="ml-1 rounded bg-sky-500/10 px-1.5 text-sky-600 dark:text-sky-300">Google</span>}
+                      </span>
+                      {canWrite && (
+                        <button onClick={() => deleteEvent(ev.id)} className={`${iconBtn} !p-1 opacity-0 hover:!text-red-500 group-hover:opacity-100`} title="Cancel event">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {dayGoogleEvents.map((ev) => (
+                  <a key={ev.id} href={ev.htmlLink} target="_blank" rel="noreferrer" className={`${rowCls} block !border-sky-500/25 !p-3`}>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-semibold text-sky-600 dark:text-sky-300">Google</span>
+                      <span className="flex items-center gap-1 text-zinc-500">
+                        <Clock className="h-3.5 w-3.5" /> {ev.allDay ? 'All day' : fmtTime(ev.startsAt)}
+                      </span>
+                    </div>
+                    <h4 className="mt-1.5 text-sm font-semibold text-black dark:text-zinc-100">{ev.title}</h4>
+                    {ev.location && <p className="mt-1 truncate text-xs text-zinc-500">{ev.location}</p>}
+                  </a>
+                ))}
+              </div>
+            )}
+            {google?.needsReconnect ? (
+              <Link to="/profile" className="block rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-xs font-medium text-amber-700 hover:bg-amber-500/15 dark:text-amber-200">
+                Google Calendar needs calendar permission — reconnect in your profile →
+              </Link>
+            ) : (
+              !google?.connected && (
+                <Link to="/profile" className="block pt-1 text-center text-xs text-zinc-400 hover:text-black dark:hover:text-white">
+                  Connect Google Calendar to see your meetings here →
+                </Link>
+              )
+            )}
+          </div>
+        </Bento>
+
+        {/* ================= TEAM ================= */}
+        <Bento className="fade-up lg:col-span-4" style={{ animationDelay: '240ms' }}>
+          <BentoHeader
+            icon={<Users className="h-5 w-5" />}
+            title="Team"
+            subtitle={`${members.length} member${members.length === 1 ? '' : 's'} · ${presence.length} online`}
+            action={
+              workspace.inviteCode && (
+                <button onClick={() => setModal('invite')} className={`${ghostBtn} !px-2.5`} title="Invite teammates">
+                  <UserPlus className="h-4 w-4" />
+                </button>
+              )
+            }
+          />
+          <ul className="max-h-64 space-y-1 overflow-y-auto">
+            {members.map((m) => {
+              const p = presence.find((x) => x.userId === m.id);
+              return (
+                <li key={m.id} className="flex items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
+                  <Avatar name={m.name} size="sm" online={onlineIds.has(m.id)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-black dark:text-zinc-100">
+                      {m.name}
+                      {m.id === user.id && <span className="ml-1 text-zinc-400">(you)</span>}
+                    </div>
+                    <div className="truncate text-xs text-zinc-500">
+                      {p?.typing ? <span className="text-emerald-600 dark:text-emerald-400">typing…</span> : onlineIds.has(m.id) ? 'Online now' : 'Offline'}
+                    </div>
+                  </div>
+                  <span className={`text-xs font-semibold ${ROLE_STYLE[m.role]}`}>{m.role.toLowerCase()}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </Bento>
+
+        {/* ================= GITHUB ================= */}
+        <Bento className="fade-up flex flex-col lg:col-span-7" style={{ animationDelay: '300ms' }}>
+          <BentoHeader
+            icon={<GithubIcon className="h-5 w-5" />}
+            title="GitHub activity"
+            subtitle={
+              workspace.repoFullName ? (
+                <a href={`https://github.com/${workspace.repoFullName}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono hover:text-black dark:hover:text-white">
+                  {workspace.repoFullName}
+                  <GitBranch className="ml-1 h-3.5 w-3.5" />
+                  {workspace.defaultBranch}
+                </a>
+              ) : (
+                'No repository connected'
+              )
+            }
+            action={
+              <>
+                {workspace.repoFullName && github?.connected && canWrite && (
+                  <button onClick={syncNow} disabled={syncing} className={`${ghostBtn} !px-2.5`} title="Pull latest commits from GitHub">
+                    <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
+                {isAdmin && (
+                  <button onClick={() => setModal('repo')} className={`${ghostBtn} !px-2.5`} title="Configure repository">
+                    <Settings className="h-4 w-4" />
+                  </button>
+                )}
+              </>
+            }
+          />
+
+          {workspace.repoFullName && (
+            <div className="mb-3 flex items-center justify-between gap-2 text-xs text-zinc-500">
+              <span className="flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${github?.connected ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                {github?.connected
+                  ? workspace.githubSyncedAt
+                    ? `Synced ${timeAgo(workspace.githubSyncedAt)} · auto-syncs every 3 min`
+                    : 'Waiting for first sync…'
+                  : 'Connect GitHub in your profile to sync real commits'}
+              </span>
+              {canWrite && (
+                <button onClick={() => setModal('commit')} className="font-medium text-zinc-500 hover:text-black dark:hover:text-white">
+                  + Log manually
+                </button>
               )}
             </div>
-          </section>
+          )}
 
-          {/* ---------- RIGHT COLUMN ---------- */}
-          <div className="space-y-6 lg:col-span-5">
-            {/* GitHub */}
-            <section className={`${panel} space-y-4 p-5`}>
-              <div className="flex items-start justify-between gap-3 border-b border-zinc-800 pb-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-zinc-950">
-                    <GithubIcon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-white">GitHub Activity</h2>
-                    {workspace.repoFullName ? (
-                      <a
-                        href={`https://github.com/${workspace.repoFullName}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 truncate font-mono text-sm text-zinc-400 hover:text-white"
-                      >
-                        {workspace.repoFullName}
-                        <GitBranch className="ml-1 h-3.5 w-3.5" />
-                        {workspace.defaultBranch}
-                      </a>
-                    ) : (
-                      <p className="text-sm text-zinc-500">No repository connected</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {workspace.repoFullName && github?.connected && canWrite && (
-                    <button onClick={syncNow} disabled={syncing} className={`${ghostBtn} px-2.5`} title="Pull latest commits from GitHub">
-                      <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                    </button>
-                  )}
-                  {isAdmin && (
-                    <button onClick={() => setModal('repo')} className={`${ghostBtn} px-2.5`} title="Configure repository">
-                      <Settings className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {workspace.repoFullName && (
-                <div className="flex items-center justify-between text-xs text-zinc-500">
-                  <span>
-                    {github?.connected
-                      ? workspace.githubSyncedAt
-                        ? `Synced ${timeAgo(workspace.githubSyncedAt)} · auto-syncs every 3 min`
-                        : 'Waiting for first sync…'
-                      : 'Connect GitHub in your profile to sync real commits'}
-                  </span>
-                  {canWrite && (
-                    <button onClick={() => setModal('commit')} className="text-zinc-400 hover:text-white">
-                      + Log manually
-                    </button>
-                  )}
-                </div>
-              )}
-
-              <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
-                {commits.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-zinc-800 bg-[#0a0b10] p-6 text-center">
-                    <p className="mb-3 text-sm text-zinc-400">
-                      {workspace.repoFullName ? 'No commits yet.' : 'Connect a repository to stream its commits here.'}
-                    </p>
-                    {!workspace.repoFullName && isAdmin && (
-                      <button onClick={() => setModal('repo')} className={primaryBtn}>
-                        <Link2 className="h-4 w-4" /> Connect repository
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  commits.map((c) => {
-                    const Wrapper: React.ElementType = c.url ? 'a' : 'div';
-                    return (
-                      <Wrapper
-                        key={c.id}
-                        {...(c.url && { href: c.url, target: '_blank', rel: 'noreferrer' })}
-                        className={`block rounded-xl border border-zinc-800/80 bg-[#0a0b10] p-3 transition hover:border-zinc-700 ${freshIds.has(c.id) ? 'flash-in' : ''}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <Avatar name={c.author?.name ?? c.authorName} size="xs" className="mt-0.5" />
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-sm text-zinc-100">{c.message}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
-                              <span className="text-zinc-300">{c.author?.name ?? c.authorName}</span>
-                              <span className="font-mono text-violet-300">{c.sha.slice(0, 7)}</span>
-                              <span>{timeAgo(c.committedAt)}</span>
-                              {c.source === 'MANUAL' && <span className="rounded bg-zinc-800 px-1.5">manual</span>}
-                            </div>
-                          </div>
-                          {c.url && <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-600" />}
-                        </div>
-                      </Wrapper>
-                    );
-                  })
-                )}
-              </div>
-            </section>
-
-            {/* Calendar */}
-            <section className={`${panel} space-y-4 p-5`}>
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-300">
-                    <Calendar className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-white">Team Calendar</h2>
-                    <p className="text-sm text-zinc-500">
-                      {googleReady ? `+ Google · ${google!.accountLabel}` : 'Workspace events'}
-                    </p>
-                  </div>
-                </div>
-                {canWrite && (
-                  <button onClick={() => setModal('event')} className={ghostBtn}>
-                    <Plus className="h-4 w-4" /> Event
+          <div className="-mr-2 max-h-[26rem] flex-1 space-y-2 overflow-y-auto pr-2">
+            {commits.length === 0 ? (
+              <div className={`${wellCls} flex flex-col items-center border-dashed px-6 py-10 text-center`}>
+                <GitCommit className="mb-2 h-6 w-6 text-zinc-400" />
+                <p className="mb-4 text-sm text-zinc-500">{workspace.repoFullName ? 'No commits yet.' : 'Connect a repository to stream its commits here.'}</p>
+                {!workspace.repoFullName && isAdmin && (
+                  <button onClick={() => setModal('repo')} className={primaryBtn}>
+                    <Link2 className="h-4 w-4" /> Connect repository
                   </button>
                 )}
               </div>
-
-              <div className="rounded-xl border border-zinc-800/80 bg-[#0a0b10] p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white" aria-label="Previous month">
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="text-sm font-semibold text-white">{month.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</span>
-                  <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white" aria-label="Next month">
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-zinc-500">
-                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                    <span key={d}>{d}</span>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-center text-sm">
-                  {Array.from({ length: firstDow }).map((_, i) => (
-                    <div key={`b${i}`} />
-                  ))}
-                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                    const d = new Date(month.getFullYear(), month.getMonth(), day);
-                    const isToday = sameDay(d, new Date());
-                    const isSel = sameDay(d, selectedDate);
-                    const has = dayHas(day);
-                    return (
-                      <button
-                        key={day}
-                        onClick={() => setSelectedDate(d)}
-                        className={`relative mx-auto flex h-9 w-9 items-center justify-center rounded-lg transition ${
-                          isSel ? 'bg-white font-bold text-zinc-950' : isToday ? 'border border-violet-400/60 font-semibold text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                        }`}
-                      >
-                        {day}
-                        <span className="absolute bottom-1 flex gap-0.5">
-                          {has.team && <span className="h-1 w-1 rounded-full bg-violet-400" />}
-                          {has.google && <span className="h-1 w-1 rounded-full bg-sky-400" />}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1 text-sm">
-                  <span className="font-medium text-zinc-300">
-                    {selectedDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
-                  </span>
-                  <span className="text-zinc-500">{dayTeamEvents.length + dayGoogleEvents.length} event(s)</span>
-                </div>
-                {dayTeamEvents.length + dayGoogleEvents.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-zinc-800 bg-[#0a0b10] p-4 text-center text-sm text-zinc-500">Nothing scheduled.</div>
-                ) : (
-                  <>
-                    {dayTeamEvents.map((ev) => (
-                      <div key={ev.id} className="group rounded-xl border border-zinc-800 bg-[#0a0b10] p-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className={`rounded-md border px-2 py-0.5 font-medium ${CATEGORY_STYLE[ev.category]}`}>{ev.category}</span>
-                          <span className="flex items-center gap-1 text-zinc-400">
-                            <Clock className="h-3.5 w-3.5" /> {fmtTime(ev.startsAt)}
-                          </span>
-                        </div>
-                        <h4 className="mt-1.5 text-sm font-semibold text-zinc-100">{ev.title}</h4>
-                        <div className="mt-1 flex items-center justify-between text-xs text-zinc-500">
-                          <span className="flex items-center gap-1 truncate">
-                            <Video className="h-3.5 w-3.5" />
-                            {ev.location && /^https?:\/\//.test(ev.location) ? (
-                              <a href={ev.location} target="_blank" rel="noreferrer" className="truncate text-zinc-300 hover:text-white">
-                                Join call
-                              </a>
-                            ) : (
-                              ev.location || 'No location'
-                            )}
-                            {ev.googleEventId && <span className="ml-1 rounded bg-sky-500/15 px-1.5 text-sky-300">in Google</span>}
-                          </span>
-                          {canWrite && (
-                            <button onClick={() => deleteEvent(ev.id)} className="text-zinc-600 opacity-0 transition hover:text-red-300 group-hover:opacity-100" title="Cancel event">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
+            ) : (
+              commits.map((c) => {
+                const Wrapper: React.ElementType = c.url ? 'a' : 'div';
+                return (
+                  <Wrapper
+                    key={c.id}
+                    {...(c.url && { href: c.url, target: '_blank', rel: 'noreferrer' })}
+                    className={`${rowCls} group flex items-start gap-3 !p-3 ${freshIds.has(c.id) ? 'flash-in' : ''}`}
+                  >
+                    <Avatar name={c.author?.name ?? c.authorName} size="sm" className="!ring-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-sm font-medium text-black dark:text-zinc-100">{c.message}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+                        <span className="text-zinc-700 dark:text-zinc-300">{c.author?.name ?? c.authorName}</span>
+                        <span className="rounded-md bg-black/[0.04] px-1.5 font-mono text-zinc-600 dark:bg-white/[0.06] dark:text-zinc-300">{c.sha.slice(0, 7)}</span>
+                        <span>{timeAgo(c.committedAt)}</span>
+                        {c.source === 'MANUAL' && <span className="rounded-md border border-black/10 px-1.5 dark:border-white/10">manual</span>}
                       </div>
-                    ))}
-                    {dayGoogleEvents.map((ev) => (
-                      <a
-                        key={ev.id}
-                        href={ev.htmlLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-3 transition hover:border-sky-500/40"
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="rounded-md border border-sky-500/30 bg-sky-500/15 px-2 py-0.5 font-medium text-sky-300">GOOGLE</span>
-                          <span className="flex items-center gap-1 text-zinc-400">
-                            <Clock className="h-3.5 w-3.5" /> {ev.allDay ? 'All day' : fmtTime(ev.startsAt)}
-                          </span>
-                        </div>
-                        <h4 className="mt-1.5 text-sm font-semibold text-zinc-100">{ev.title}</h4>
-                        {ev.location && <p className="mt-1 truncate text-xs text-zinc-500">{ev.location}</p>}
-                      </a>
-                    ))}
-                  </>
-                )}
-                {google?.needsReconnect ? (
-                  <Link to="/profile" className="block rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-200 hover:bg-amber-500/15">
-                    Google Calendar needs calendar permission — reconnect in your profile →
-                  </Link>
-                ) : (
-                  !google?.connected && (
-                    <Link to="/profile" className="block text-center text-xs text-zinc-500 hover:text-zinc-300">
-                      Connect Google Calendar to see your meetings here →
-                    </Link>
-                  )
-                )}
-              </div>
-            </section>
-
-            {/* Activity ledger */}
-            <section className={`${panel} space-y-4 p-5`}>
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
-                    <Activity className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-white">Activity Ledger</h2>
-                    <p className="text-sm text-zinc-500">Everything that happened, in one timeline</p>
-                  </div>
-                </div>
-              </div>
-              <ol className="relative max-h-96 space-y-4 overflow-y-auto pl-1 pr-1">
-                {activities.length === 0 ? (
-                  <li className="text-center text-sm text-zinc-500">No activity yet.</li>
-                ) : (
-                  activities.map((a) => (
-                    <li key={a.id} className={`flex gap-3 rounded-lg ${freshIds.has(a.id) ? 'flash-in' : ''}`}>
-                      <div className="relative">
-                        <Avatar name={a.actor.name} size="xs" />
-                        <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[#12141d] ${ACTIVITY_DOT[a.type] ?? 'bg-zinc-500'}`} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-sm leading-snug text-zinc-300">
-                          <span className="font-semibold text-zinc-100">{a.actor.name}</span> {a.summary}
-                        </p>
-                        <span className="text-xs text-zinc-500">{timeAgo(a.createdAt)}</span>
-                      </div>
-                    </li>
-                  ))
-                )}
-              </ol>
-            </section>
+                    </div>
+                    {c.url && <ExternalLink className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover:text-zinc-600 dark:text-zinc-700 dark:group-hover:text-zinc-300" />}
+                  </Wrapper>
+                );
+              })
+            )}
           </div>
-        </div>
+        </Bento>
+
+        {/* ================= ACTIVITY LEDGER ================= */}
+        <Bento className="fade-up flex flex-col lg:col-span-5" style={{ animationDelay: '360ms' }}>
+          <BentoHeader icon={<Activity className="h-5 w-5" />} title="Activity ledger" subtitle="Everything that happened, in one timeline" />
+          <ol className="relative -mr-2 max-h-[26rem] flex-1 overflow-y-auto pr-2">
+            {activities.length === 0 ? (
+              <li className="py-8 text-center text-sm text-zinc-400">No activity yet.</li>
+            ) : (
+              activities.map((a, i) => (
+                <li key={a.id} className={`relative flex gap-3 rounded-xl pb-4 ${freshIds.has(a.id) ? 'flash-in' : ''}`}>
+                  {i < activities.length - 1 && <span className="absolute left-[15px] top-9 h-[calc(100%-2rem)] w-px bg-black/10 dark:bg-white/10" />}
+                  <div className="relative shrink-0">
+                    <Avatar name={a.actor.name} size="sm" className="!ring-0" />
+                    <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-zinc-50 dark:ring-zinc-950 ${ACTIVITY_DOT[a.type] ?? 'bg-zinc-400'}`} />
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <p className="break-words text-sm leading-snug text-zinc-600 dark:text-zinc-300">
+                      <span className="font-semibold text-black dark:text-zinc-100">{a.actor.name}</span> {a.summary}
+                    </p>
+                    <span className="text-xs text-zinc-400">{timeAgo(a.createdAt)}</span>
+                  </div>
+                </li>
+              ))
+            )}
+          </ol>
+        </Bento>
       </main>
 
       {/* ================= MODALS ================= */}
@@ -947,7 +1067,7 @@ export const WorkspaceApp: React.FC = () => {
       {modal === 'commit' && (
         <SimpleFormModal
           title="Log a commit manually"
-          icon={<GitCommit className="h-5 w-5 text-violet-300" />}
+          icon={<GitCommit className="h-5 w-5" />}
           label="Commit message"
           placeholder="fix: resolve session expiration bug"
           submitLabel="Log commit"
@@ -1008,7 +1128,7 @@ export const WorkspaceApp: React.FC = () => {
       {modal === 'join' && (
         <SimpleFormModal
           title="Join a workspace"
-          icon={<UserPlus className="h-5 w-5 text-pink-300" />}
+          icon={<UserPlus className="h-5 w-5" />}
           label="Invite code"
           placeholder="ABCD-1234"
           submitLabel="Join"
@@ -1027,7 +1147,7 @@ export const WorkspaceApp: React.FC = () => {
       {modal === 'create' && (
         <SimpleFormModal
           title="Create a workspace"
-          icon={<Plus className="h-5 w-5 text-emerald-300" />}
+          icon={<Plus className="h-5 w-5" />}
           label="Workspace name"
           placeholder="e.g. Hackathon team"
           submitLabel="Create"
@@ -1050,7 +1170,7 @@ export const WorkspaceApp: React.FC = () => {
 // ==========================================
 const SubmitRow: React.FC<{ busy: boolean; label: string; onCancel: () => void; disabled?: boolean }> = ({ busy, label, onCancel, disabled }) => (
   <div className="flex items-center justify-end gap-2 pt-2">
-    <button type="button" onClick={onCancel} className="rounded-lg px-3 py-2 text-sm text-zinc-400 hover:text-white">
+    <button type="button" onClick={onCancel} className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white">
       Cancel
     </button>
     <button type="submit" disabled={busy || disabled} className={primaryBtn}>
@@ -1134,7 +1254,7 @@ const TaskModal: React.FC<{
   }, []);
 
   return (
-    <Modal title="Create task" icon={<CheckSquare className="h-5 w-5 text-sky-300" />} onClose={onClose} wide>
+    <Modal title="Create task" icon={<CheckSquare className="h-5 w-5" />} onClose={onClose} wide>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -1243,7 +1363,7 @@ const RepoModal: React.FC<{
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your repositories…" className={`${inputCls} pl-9`} />
           </div>
-          <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-zinc-800 bg-[#0a0b10] p-1.5">
+          <div className="max-h-56 space-y-1 overflow-y-auto rounded-2xl border border-black/10 bg-zinc-50 p-1.5 dark:border-white/10 dark:bg-black/60">
             {repos === null ? (
               <div className="flex items-center justify-center gap-2 p-4 text-sm text-zinc-500">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading repositories…
@@ -1259,20 +1379,20 @@ const RepoModal: React.FC<{
                     setRepo(r.fullName);
                     setBranch(r.defaultBranch);
                   }}
-                  className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition ${
-                    repo === r.fullName ? 'bg-violet-500/15 text-white' : 'text-zinc-300 hover:bg-zinc-800'
+                  className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition ${
+                    repo === r.fullName ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-700 hover:bg-black/[0.05] dark:text-zinc-300 dark:hover:bg-white/[0.06]'
                   }`}
                 >
                   <span className="flex-1 truncate font-mono">{r.fullName}</span>
-                  {r.private && <span className="rounded bg-zinc-800 px-1.5 text-xs text-zinc-400">private</span>}
-                  <span className="text-xs text-zinc-500">{timeAgo(r.pushedAt)}</span>
+                  {r.private && <span className="rounded-md border border-current/20 px-1.5 text-xs opacity-70">private</span>}
+                  <span className="text-xs opacity-60">{timeAgo(r.pushedAt)}</span>
                 </button>
               ))
             )}
           </div>
         </div>
       ) : (
-        <div className="mb-4 rounded-lg border border-sky-500/20 bg-sky-500/[0.06] p-3 text-sm text-sky-200">
+        <div className="mb-4 rounded-xl border border-sky-500/25 bg-sky-500/[0.07] p-3 text-sm text-sky-700 dark:text-sky-200">
           {githubConfigured ? (
             <>
               <Link to="/profile" className="font-semibold underline underline-offset-2">
@@ -1312,7 +1432,7 @@ const RepoModal: React.FC<{
             <span />
           )}
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-zinc-400 hover:text-white">
+            <button type="button" onClick={onClose} className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white">
               Cancel
             </button>
             <button type="submit" disabled={busy || !repo.trim()} className={primaryBtn}>
@@ -1342,7 +1462,7 @@ const EventModal: React.FC<{
   const [busy, setBusy] = useState(false);
 
   return (
-    <Modal title="Schedule event" icon={<Calendar className="h-5 w-5 text-amber-300" />} onClose={onClose} wide>
+    <Modal title="Schedule event" icon={<Calendar className="h-5 w-5" />} onClose={onClose} wide>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -1407,7 +1527,7 @@ const EventModal: React.FC<{
           <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="https://meet.google.com/…" className={inputCls} />
         </div>
         {googleConnected && (
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-sky-500/20 bg-sky-500/[0.05] px-3 py-2.5 text-sm text-sky-100">
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-sky-500/25 bg-sky-500/[0.06] px-3 py-2.5 text-sm text-sky-700 dark:text-sky-100">
             <input type="checkbox" checked={addToGoogle} onChange={(e) => setAddToGoogle(e.target.checked)} className="h-4 w-4 accent-sky-500" />
             Also add to my Google Calendar
           </label>
@@ -1431,11 +1551,11 @@ const InviteModal: React.FC<{ workspace: Workspace; onClose: () => void }> = ({ 
     }
   };
   return (
-    <Modal title={`Invite to ${workspace.name}`} icon={<UserPlus className="h-5 w-5 text-pink-300" />} onClose={onClose}>
-      <p className="mb-4 text-sm text-zinc-400">Friends with a Syncro account can join using this code or link. They'll join as members.</p>
-      <div className="mb-3 rounded-xl border border-dashed border-violet-500/30 bg-violet-500/[0.06] p-5 text-center">
+    <Modal title={`Invite to ${workspace.name}`} icon={<UserPlus className="h-5 w-5" />} onClose={onClose}>
+      <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">Friends with a Syncro account can join using this code or link. They'll join as members.</p>
+      <div className="mb-3 rounded-2xl border border-dashed border-emerald-500/40 bg-emerald-500/[0.06] p-6 text-center">
         <div className="mb-1 text-xs uppercase tracking-wider text-zinc-500">Invite code</div>
-        <div className="select-all font-mono text-3xl font-bold tracking-[0.2em] text-white">{workspace.inviteCode}</div>
+        <div className="select-all font-mono text-3xl font-bold tracking-[0.2em] text-black dark:text-white">{workspace.inviteCode}</div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => copy(workspace.inviteCode!, 'code')} className={ghostBtn}>
@@ -1446,7 +1566,7 @@ const InviteModal: React.FC<{ workspace: Workspace; onClose: () => void }> = ({ 
         </button>
       </div>
       <p className="mt-4 text-center text-xs text-zinc-500">
-        Manage codes in your <Link to="/profile" className="text-zinc-300 underline-offset-2 hover:underline">profile</Link>.
+        Manage codes in your <Link to="/profile" className="font-medium text-black underline-offset-2 hover:underline dark:text-white">profile</Link>.
       </p>
     </Modal>
   );
