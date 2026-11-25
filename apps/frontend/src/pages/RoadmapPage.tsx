@@ -141,9 +141,9 @@ const PHASES: Phase[] = [
     title: 'Universal Activity Feed & Telemetry',
     subtitle: 'Centralized activity stream, filter engine, and workspace health diagnostics',
     status: 'PLANNED',
-    badge: 'SCHEDULED // SPRINT 3',
+    badge: 'IN PROGRESS // SPRINT 3',
     timeframe: 'Week 3',
-    percent: 0,
+    percent: 33,
     tasks: [
       {
         id: 'p3-1',
@@ -151,7 +151,7 @@ const PHASES: Phase[] = [
         desc: 'Chronological activity stream aggregating commits, task mutations, and team milestones.',
         category: 'Frontend',
         timeframe: 'Week 3',
-        completed: false,
+        completed: true,
       },
       {
         id: 'p3-2',
