@@ -520,6 +520,37 @@ export const WorkspaceApp: React.FC = () => {
                 <UserPlus className="h-4 w-4" /> Invite
               </button>
             )}
+
+            {/* Active Collaborator Presence Avatar Stack (Phase 2) */}
+            <div className="flex items-center gap-2 pl-2 border-l border-white/10">
+              <div className="flex -space-x-2 overflow-hidden">
+                {presence.slice(0, 4).map((p) => (
+                  <div key={p.userId} className="relative group cursor-pointer">
+                    <Avatar
+                      name={p.name}
+                      size="xs"
+                      online
+                      className="ring-2 ring-black hover:scale-110 transition-transform"
+                    />
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
+                      <span className="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white shadow-xl whitespace-nowrap">
+                        {p.name} {p.typing ? '· typing…' : '· online'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {presence.length > 4 && (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-semibold text-zinc-300 ring-2 ring-black">
+                    +{presence.length - 4}
+                  </span>
+                )}
+              </div>
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono text-zinc-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {presence.length} online
+              </span>
+            </div>
           </>
         }
       />
