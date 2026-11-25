@@ -1,3 +1,4 @@
+import { KanbanTaskBoard } from '../components/KanbanTaskBoard';
 import { ActivityTimelineStream } from '../components/ActivityTimelineStream';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -230,6 +231,7 @@ export const WorkspaceApp: React.FC = () => {
   const googleReady = !!google?.connected && !google.needsReconnect;
 
   // ---------- ui state ----------
+  const [taskViewMode, setTaskViewMode] = useState<'list' | 'board'>('board');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'ALL' | 'OVERDUE'>('ALL');
   const [modal, setModal] = useState<null | 'task' | 'commit' | 'repo' | 'event' | 'invite' | 'join' | 'create'>(null);
   const [month, setMonth] = useState(() => {
@@ -616,11 +618,27 @@ export const WorkspaceApp: React.FC = () => {
             title="Sprint deliverables"
             subtitle={`${filteredTasks.length} of ${tasks.length} tasks`}
             action={
-              canWrite && (
-                <button onClick={() => setModal('task')} className={primaryBtn}>
-                  <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add task</span>
-                </button>
-              )
+              <div className="flex items-center gap-2">
+                <div className="flex items-center rounded-xl border border-white/10 bg-black/60 p-0.5 text-xs">
+                  <button
+                    onClick={() => setTaskViewMode('board')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition ${taskViewMode === 'board' ? 'bg-white/15 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
+                  >
+                    Board
+                  </button>
+                  <button
+                    onClick={() => setTaskViewMode('list')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition ${taskViewMode === 'list' ? 'bg-white/15 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
+                  >
+                    List
+                  </button>
+                </div>
+                {canWrite && (
+                  <button onClick={() => setModal('task')} className={primaryBtn}>
+                    <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add task</span>
+                  </button>
+                )}
+              </div>
             }
           />
 
@@ -646,7 +664,10 @@ export const WorkspaceApp: React.FC = () => {
             })}
           </div>
 
-          <div className="-mr-2 max-h-[46rem] flex-1 space-y-2.5 overflow-y-auto pr-2">
+          {taskViewMode === 'board' ? (
+            <KanbanTaskBoard tasks={tasks} updateStatus={updateStatus} canWrite={canWrite} />
+          ) : (
+            <div className="-mr-2 max-h-[46rem] flex-1 space-y-2.5 overflow-y-auto pr-2">
             {loading ? (
               [0, 1, 2].map((i) => <div key={i} className={`${rowCls} h-28 animate-pulse`} />)
             ) : filteredTasks.length === 0 ? (
@@ -733,6 +754,7 @@ export const WorkspaceApp: React.FC = () => {
               })
             )}
           </div>
+          )}
 
           {/* Quick add + progress footer — anchors the tile when there are few tasks */}
           <div className="mt-auto space-y-4 pt-4">
