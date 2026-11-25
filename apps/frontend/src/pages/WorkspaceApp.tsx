@@ -1,3 +1,4 @@
+import { ActivityTimelineStream } from '../components/ActivityTimelineStream';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -1020,30 +1021,9 @@ export const WorkspaceApp: React.FC = () => {
           </div>
         </Bento>
 
-        {/* ================= ACTIVITY LEDGER ================= */}
+        {/* ================= UNIFIED ACTIVITY TIMELINE STREAM (PHASE 3) ================= */}
         <Bento className="fade-up flex flex-col lg:col-span-5" style={{ animationDelay: '360ms' }}>
-          <BentoHeader icon={<Activity className="h-5 w-5" />} title="Activity ledger" subtitle="Everything that happened, in one timeline" />
-          <ol className="relative -mr-2 max-h-[26rem] flex-1 overflow-y-auto pr-2">
-            {activities.length === 0 ? (
-              <li className="py-8 text-center text-sm text-zinc-400">No activity yet.</li>
-            ) : (
-              activities.map((a, i) => (
-                <li key={a.id} className={`relative flex gap-3 rounded-xl pb-4 ${freshIds.has(a.id) ? 'flash-in' : ''}`}>
-                  {i < activities.length - 1 && <span className="absolute left-[15px] top-9 h-[calc(100%-2rem)] w-px bg-black/10 dark:bg-white/10" />}
-                  <div className="relative shrink-0">
-                    <Avatar name={a.actor.name} size="sm" className="!ring-0" />
-                    <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-zinc-50 dark:ring-zinc-950 ${ACTIVITY_DOT[a.type] ?? 'bg-zinc-400'}`} />
-                  </div>
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <p className="break-words text-sm leading-snug text-zinc-600 dark:text-zinc-300">
-                      <span className="font-semibold text-black dark:text-zinc-100">{a.actor.name}</span> {a.summary}
-                    </p>
-                    <span className="text-xs text-zinc-400">{timeAgo(a.createdAt)}</span>
-                  </div>
-                </li>
-              ))
-            )}
-          </ol>
+          <ActivityTimelineStream activities={activities} activityDot={ACTIVITY_DOT} icon={<Activity className="h-5 w-5" />} />
         </Bento>
       </main>
 

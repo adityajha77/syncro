@@ -1,213 +1,143 @@
 import React, { useState } from 'react';
-import { GitCommit, CheckCircle2, Calendar, Sparkles } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
-export interface ActivityItem {
+interface ActivityItem {
   id: string;
-  type: 'commit' | 'task' | 'calendar';
-  title: string;
-  subtitle: string;
-  author: string;
-  timestamp: string;
-  badge?: string;
-  badgeColor?: string;
+  type?: string;
+  summary: string;
+  createdAt: string;
+  actor: {
+    name: string;
+  };
 }
 
 interface ActivityTimelineStreamProps {
-  customActivities?: ActivityItem[];
+  activities?: ActivityItem[];
+  activityDot?: any;
+  icon?: any;
 }
 
 export const ActivityTimelineStream: React.FC<ActivityTimelineStreamProps> = ({
-  customActivities
+  activities = [],
+  activityDot = {},
+  icon,
 }) => {
-  const [filter, setFilter] = useState<'all' | 'commit' | 'task' | 'calendar'>('all');
+  const [filter, setFilter] = useState<'all' | 'task' | 'calendar' | 'commit'>('all');
 
-  const defaultActivities: ActivityItem[] = [
-    {
-      id: 'act-1',
-      type: 'commit',
-      title: 'chore(frontend): verify clean production build and dependencies',
-      subtitle: 'Commit 4199987 pushed to origin/main with 0 errors',
-      author: 'Rsinchana16',
-      timestamp: 'Just now',
-      badge: 'Git Stream',
-      badgeColor: 'border-purple-500/30 text-purple-400 bg-purple-500/10'
-    },
-    {
-      id: 'act-2',
-      type: 'task',
-      title: 'Completed: Unified Workspace Cockpit Dashboard',
-      subtitle: 'Moved task from IN PROGRESS to DONE (Priority: URGENT)',
-      author: 'Sinchana R.',
-      timestamp: '2 hours ago',
-      badge: 'Task Deliverable',
-      badgeColor: 'border-blue-500/30 text-blue-400 bg-blue-500/10'
-    },
-    {
-      id: 'act-3',
-      type: 'calendar',
-      title: 'Scheduled: Sprint Retrospective & Mentor Review',
-      subtitle: 'Time: 4:00 PM - 5:00 PM via Google Meet',
-      author: 'Sprint Calendar',
-      timestamp: 'Today',
-      badge: 'Sprint Event',
-      badgeColor: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
-    },
-    {
-      id: 'act-4',
-      type: 'commit',
-      title: 'feat: real backend, auth, invites, profile, GitHub + Google integrations',
-      subtitle: 'Commit 94e264e merged into main branch',
-      author: 'adityajha77',
-      timestamp: '2 weeks ago',
-      badge: 'Git Stream',
-      badgeColor: 'border-purple-500/30 text-purple-400 bg-purple-500/10'
-    },
-    {
-      id: 'act-5',
-      type: 'task',
-      title: 'In Progress: Real-time WebSocket State Binding',
-      subtitle: 'WebSocket gateway initialized on /ws protocol',
-      author: 'Aditya Jha',
-      timestamp: '2 weeks ago',
-      badge: 'Realtime Backend',
-      badgeColor: 'border-blue-500/30 text-blue-400 bg-blue-500/10'
-    },
-    {
-      id: 'act-6',
-      type: 'calendar',
-      title: 'Completed: Daily Engineering Standup',
-      subtitle: 'Reviewed blockers and task distribution across monorepo',
-      author: 'Sprint Calendar',
-      timestamp: 'Yesterday',
-      badge: 'Sprint Event',
-      badgeColor: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
-    }
-  ];
+  const formatTimeAgo = (dateStr: string) => {
+    const diffSec = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (diffSec < 60) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  };
 
-  const activities = customActivities && customActivities.length > 0 ? customActivities : defaultActivities;
-
-  const filtered = filter === 'all' 
-    ? activities 
-    : activities.filter(a => a.type === filter);
+  const filtered = activities.filter(a => {
+    if (filter === 'all') return true;
+    const s = (a.summary || '').toLowerCase();
+    const t = (a.type || '').toLowerCase();
+    if (filter === 'task') return t.includes('task') || s.includes('task');
+    if (filter === 'calendar') return t.includes('calendar') || t.includes('event') || s.includes('sync');
+    if (filter === 'commit') return t.includes('commit') || s.includes('commit') || s.includes('push');
+    return true;
+  });
 
   return (
-    <div className="w-full bg-[#0a0c12] border border-zinc-800 rounded-2xl p-6 text-zinc-100 shadow-xl">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-zinc-800/80 gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <Sparkles className="w-4 h-4" />
-            </span>
-            <h2 className="text-base font-bold text-white tracking-tight">
-              Unified Activity Timeline Stream
-            </h2>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Live Feed
-            </span>
+    <div className="flex flex-col h-full">
+      {/* Header with Title and Filter Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-white/10 mb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300">
+            {icon || <Activity className="h-5 w-5 text-emerald-400" />}
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Aggregated audit ledger of repository commits, deliverable updates, and calendar milestones.
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-zinc-100">
+                Unified Activity Timeline Stream
+              </h3>
+              <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-medium">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Feed
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Everything that happened, in one filtered chronological timeline
+            </p>
+          </div>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex items-center gap-1.5 bg-zinc-900/80 p-1 rounded-xl border border-zinc-800 text-xs">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition ${
-              filter === 'all'
-                ? 'bg-zinc-700 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-            }`}
-          >
-            All ({activities.length})
-          </button>
-          <button
-            onClick={() => setFilter('commit')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition ${
-              filter === 'commit'
-                ? 'bg-purple-600/40 text-purple-200 border border-purple-500/30'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-            }`}
-          >
-            Commits
-          </button>
-          <button
-            onClick={() => setFilter('task')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition ${
-              filter === 'task'
-                ? 'bg-blue-600/40 text-blue-200 border border-blue-500/30'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-            }`}
-          >
-            Tasks
-          </button>
-          <button
-            onClick={() => setFilter('calendar')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition ${
-              filter === 'calendar'
-                ? 'bg-emerald-600/40 text-emerald-200 border border-emerald-500/30'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-            }`}
-          >
-            Calendar
-          </button>
-        </div>
-      </div>
+        {/* Filter Pills matching Jet Black theme */}
+        <div className="flex items-center gap-1 bg-black/60 border border-white/10 p-1 rounded-xl self-start sm:self-auto">
+          {(['all', 'task', 'calendar', 'commit'] as const).map(tab => {
+            const count = tab === 'all' 
+              ? activities.length 
+              : activities.filter(a => {
+                  const s = (a.summary || '').toLowerCase();
+                  const t = (a.type || '').toLowerCase();
+                  if (tab === 'task') return t.includes('task') || s.includes('task');
+                  if (tab === 'calendar') return t.includes('calendar') || t.includes('event') || s.includes('sync');
+                  if (tab === 'commit') return t.includes('commit') || s.includes('commit') || s.includes('push');
+                  return false;
+                }).length;
 
-      {/* Timeline Stream */}
-      <div className="relative pt-6">
-        <div className="absolute left-[19px] top-9 bottom-4 w-0.5 bg-zinc-800" />
-
-        <div className="space-y-6">
-          {filtered.map((item) => {
-            const isCommit = item.type === 'commit';
-            const isTask = item.type === 'task';
+            const labels = { all: 'All', task: 'Tasks', calendar: 'Calendar', commit: 'Commits' };
+            const isActive = filter === tab;
 
             return (
-              <div key={item.id} className="relative flex items-start gap-4 group">
-                <div className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-xl shrink-0 transition-transform group-hover:scale-105 border ${
-                  isCommit 
-                    ? 'bg-purple-950/40 border-purple-500/30 text-purple-400 shadow-sm shadow-purple-500/10'
-                    : isTask
-                    ? 'bg-blue-950/40 border-blue-500/30 text-blue-400 shadow-sm shadow-blue-500/10'
-                    : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-500/10'
-                }`}>
-                  {isCommit && <GitCommit className="w-4 h-4" />}
-                  {isTask && <CheckCircle2 className="w-4 h-4" />}
-                  {!isCommit && !isTask && <Calendar className="w-4 h-4" />}
-                </div>
-
-                <div className="flex-1 p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 hover:border-zinc-700/80 transition-colors">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-xs font-semibold text-white leading-snug">
-                      {item.title}
-                    </span>
-                    {item.badge && (
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md border font-medium shrink-0 ${item.badgeColor || 'border-zinc-700 text-zinc-300'}`}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-zinc-400 mb-2">
-                    {item.subtitle}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-1.5 border-t border-zinc-800/50">
-                    <span className="flex items-center gap-1.5 text-zinc-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
-                      By <strong className="text-zinc-200 font-medium">{item.author}</strong>
-                    </span>
-                    <span className="font-mono text-zinc-500 text-[10px]">{item.timestamp}</span>
-                  </div>
-                </div>
-              </div>
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-white/15 text-white shadow-sm border border-white/20'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                }`}
+              >
+                {labels[tab]} {count > 0 && <span className="text-[10px] text-zinc-400 ml-0.5">({count})</span>}
+              </button>
             );
           })}
         </div>
       </div>
+
+      {/* Timeline Stream using exact Jet Black styling */}
+      <ol className="relative -mr-2 max-h-[26rem] flex-1 overflow-y-auto pr-2">
+        {filtered.length === 0 ? (
+          <li className="py-8 text-center text-sm text-zinc-400">
+            No activity in this category yet.
+          </li>
+        ) : (
+          filtered.map((a, i) => {
+            const isTask = a.type?.toLowerCase().includes('task') || a.summary?.toLowerCase().includes('task');
+            const isSync = a.summary?.toLowerCase().includes('sync');
+            const isCommit = a.summary?.toLowerCase().includes('commit');
+            const fallbackDot = isTask ? 'bg-emerald-500' : isSync ? 'bg-amber-500' : isCommit ? 'bg-purple-500' : 'bg-cyan-500';
+            const dotColor = (a.type && activityDot[a.type]) ? activityDot[a.type] : fallbackDot;
+
+            return (
+              <li key={a.id} className="relative flex gap-3 pb-4">
+                {i < filtered.length - 1 && (
+                  <span className="absolute left-[15px] top-9 h-[calc(100%-2rem)] w-px bg-white/10" />
+                )}
+                <div className="relative shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-semibold text-zinc-200">
+                    {a.actor?.name?.slice(0, 2).toUpperCase() || 'SR'}
+                  </div>
+                  <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-black ${dotColor}`} />
+                </div>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="break-words text-sm leading-snug text-zinc-300">
+                    <span className="font-semibold text-zinc-100">{a.actor?.name}</span> {a.summary}
+                  </p>
+                  <span className="text-xs text-zinc-400">{formatTimeAgo(a.createdAt)}</span>
+                </div>
+              </li>
+            );
+          })
+        )}
+      </ol>
     </div>
   );
 };
