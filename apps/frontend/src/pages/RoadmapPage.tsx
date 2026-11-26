@@ -97,9 +97,9 @@ const PHASES: Phase[] = [
     title: 'Collaborative Task Board & Live State',
     subtitle: 'Interactive task board, live database migration, and WebSocket state binding',
     status: 'PLANNED',
-    badge: 'UPCOMING // SPRINT 2',
+    badge: 'COMPLETED // SPRINT 2',
     timeframe: 'Week 2',
-    percent: 30,
+    percent: 100,
     tasks: [
       {
         id: 'p2-1',
@@ -107,7 +107,7 @@ const PHASES: Phase[] = [
         desc: 'Interactive Kanban board with drag-and-drop task movements propagating across peers.',
         category: 'Frontend',
         timeframe: 'Week 2',
-        completed: false,
+        completed: true,
       },
       {
         id: 'p2-2',
@@ -115,7 +115,7 @@ const PHASES: Phase[] = [
         desc: 'Running prisma migrate dev on PostgreSQL instance with automated seed users and projects.',
         category: 'Database',
         timeframe: 'Week 2',
-        completed: false,
+        completed: true,
       },
       {
         id: 'p2-3',
@@ -131,7 +131,7 @@ const PHASES: Phase[] = [
         desc: 'Live user avatars and active typing indicators across open workspace documents.',
         category: 'Frontend',
         timeframe: 'Week 2',
-        completed: false,
+        completed: true,
       },
     ],
   },
@@ -141,9 +141,9 @@ const PHASES: Phase[] = [
     title: 'Universal Activity Feed & Telemetry',
     subtitle: 'Centralized activity stream, filter engine, and workspace health diagnostics',
     status: 'PLANNED',
-    badge: 'IN PROGRESS // SPRINT 3',
+    badge: 'COMPLETED // SPRINT 3',
     timeframe: 'Week 3',
-    percent: 33,
+    percent: 100,
     tasks: [
       {
         id: 'p3-1',
@@ -159,7 +159,7 @@ const PHASES: Phase[] = [
         desc: 'API metrics tracking query latencies, active socket connections, and memory consumption.',
         category: 'Backend',
         timeframe: 'Week 3',
-        completed: false,
+        completed: true,
       },
       {
         id: 'p3-3',
@@ -167,7 +167,7 @@ const PHASES: Phase[] = [
         desc: 'Persistent PostgreSQL audit trail capturing every state change with user attribution.',
         category: 'Database',
         timeframe: 'Week 3',
-        completed: false,
+        completed: true,
       },
     ],
   },

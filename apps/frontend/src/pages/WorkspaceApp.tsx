@@ -664,11 +664,6 @@ export const WorkspaceApp: React.FC = () => {
                     List
                   </button>
                 </div>
-                {canWrite && (
-                  <button onClick={() => setModal('task')} className={primaryBtn}>
-                    <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add task</span>
-                  </button>
-                )}
               </div>
             }
           />
