@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { CheckCircle2, AlertCircle, X, Sun, Moon } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
+import { CheckCircle2, AlertCircle, X, Sun, Moon, Palette } from 'lucide-react';
+import { THEMES, useTheme } from '../context/ThemeContext';
 
 /**
  * Syncro app design system — mirrors the marketing site:
@@ -46,19 +46,53 @@ export const Bento: React.FC<BentoProps> = ({ as = 'section', pad = true, classN
   );
 };
 
-export const BentoHeader: React.FC<{ icon: React.ReactNode; title: string; subtitle?: React.ReactNode; action?: React.ReactNode }> = ({
+// ---------------- Icon tiles ----------------
+export type Tone = 'emerald' | 'sky' | 'violet' | 'amber' | 'rose' | 'ink';
+const TONES: Record<Tone, string> = {
+  emerald: 'from-emerald-400 to-teal-600 shadow-emerald-500/30',
+  sky: 'from-sky-400 to-blue-600 shadow-sky-500/30',
+  violet: 'from-violet-400 to-purple-600 shadow-violet-500/30',
+  amber: 'from-amber-300 to-orange-500 shadow-amber-500/30',
+  rose: 'from-rose-400 to-pink-600 shadow-rose-500/30',
+  ink: 'from-zinc-700 to-black shadow-black/20 dark:from-zinc-600 dark:to-zinc-800',
+};
+
+/** Glossy gradient tile for icons — one tone per kind of thing, used everywhere. */
+export const IconTile: React.FC<{ tone?: Tone; size?: 'sm' | 'md' | 'lg'; className?: string; children: React.ReactNode }> = ({ tone = 'ink', size = 'md', className = '', children }) => {
+  const dims = { sm: 'h-8 w-8 rounded-lg', md: 'h-10 w-10 rounded-xl', lg: 'h-12 w-12 rounded-2xl' }[size];
+  return (
+    <div
+      className={`relative flex shrink-0 items-center justify-center bg-gradient-to-br text-white shadow-lg ring-1 ring-inset ring-white/25 ${TONES[tone]} ${dims} ${className}`}
+    >
+      <span className="pointer-events-none absolute inset-x-1 top-0.5 h-1/2 rounded-[inherit] bg-gradient-to-b from-white/30 to-transparent" />
+      <span className="relative">{children}</span>
+    </div>
+  );
+};
+
+/** Picks a tone from the header title so the same kind of card always gets the same color. */
+const toneFor = (title: string): Tone => {
+  const t = title.toLowerCase();
+  if (/health|deliverable|task|card|standup/.test(t)) return 'emerald';
+  if (/calendar|meeting|schedule|upcoming|recent|activity/.test(t)) return 'sky';
+  if (/team|teammate|workspace|join|account/.test(t)) return 'violet';
+  if (/time|hour|timer|log/.test(t)) return 'amber';
+  if (/security|password/.test(t)) return 'rose';
+  return 'ink';
+};
+
+export const BentoHeader: React.FC<{ icon: React.ReactNode; title: string; subtitle?: React.ReactNode; action?: React.ReactNode; tone?: Tone }> = ({
   icon,
   title,
   subtitle,
   action,
+  tone,
 }) => (
   <div className="mb-5 flex items-start justify-between gap-3">
     <div className="flex min-w-0 items-center gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-zinc-800 shadow-sm dark:border-white/10 dark:bg-black dark:text-zinc-100">
-        {icon}
-      </div>
+      <IconTile tone={tone ?? toneFor(title)}>{icon}</IconTile>
       <div className="min-w-0">
-        <h2 className={`truncate text-base font-semibold ${titleText}`}>{title}</h2>
+        <h2 className={`truncate font-hand text-[1.7rem] font-bold leading-tight ${titleText}`}>{title}</h2>
         {subtitle && <div className={`truncate text-sm ${subtleText}`}>{subtitle}</div>}
       </div>
     </div>
@@ -93,22 +127,108 @@ export const AppBackdrop: React.FC = () => {
   );
 };
 
-// ---------------- Theme toggle (same circular reveal as the home page) ----------------
+// ---------------- Theme picker (light · dark · blush · sky · lavender) ----------------
 export const ThemeToggle: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { isDark, toggleTheme } = useTheme();
+  const { theme, isDark, setTheme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+  const tinted = theme !== 'light' && theme !== 'dark';
   return (
-    <button
-      onClick={toggleTheme}
-      className={`rounded-xl border border-black/10 bg-zinc-100 p-2.5 text-zinc-700 transition-all hover:scale-105 hover:border-black/20 active:scale-95 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-white/30 ${className}`}
-      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-      aria-label="Toggle theme"
-    >
-      {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
-    </button>
+    <div className={`relative ${className}`} ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-zinc-100 text-zinc-700 transition-all hover:scale-105 hover:border-black/20 active:scale-95 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-white/30"
+        title="Change theme"
+        aria-label="Change theme"
+        aria-expanded={open}
+      >
+        {tinted ? <Palette className="h-4 w-4" style={{ color: THEMES.find((t) => t.id === theme)?.ring }} /> : isDark ? <Moon className="h-4 w-4 text-sky-300" /> : <Sun className="h-4 w-4 text-amber-500" />}
+      </button>
+      {open && (
+        <div className="modal-in absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-black/10 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-zinc-950">
+          <div className="hand px-2 pb-1 pt-0.5 text-lg text-zinc-500 dark:text-zinc-400">pick your vibe</div>
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setTheme(t.id, { x: r.left + 20, y: r.top + r.height / 2 });
+                setOpen(false);
+              }}
+              className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm font-medium transition ${
+                theme === t.id ? 'bg-zinc-100 text-black dark:bg-zinc-900 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 hover:text-black dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <span className="h-6 w-6 shrink-0 rounded-full border-2 shadow-inner" style={{ background: t.swatch, borderColor: t.ring }} />
+              <span className="flex-1">{t.label}</span>
+              {theme === t.id && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---------------- Animated numbers ----------------
+/** True once the element has scrolled into view (never flips back). */
+export const useSeenOnce = <T extends Element>() => {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || seen) return;
+    const io = new IntersectionObserver(([e]) => e?.isIntersecting && (setSeen(true), io.disconnect()), { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+  return [ref, seen] as const;
+};
+
+/** Counts from 0 up to `value` the first time it is seen; afterwards it just shows the value. */
+export const CountUp: React.FC<{ value: number; suffix?: string; duration?: number; className?: string }> = ({ value, suffix = '', duration = 1300, className = '' }) => {
+  const [ref, seen] = useSeenOnce<HTMLSpanElement>();
+  const [shown, setShown] = useState(0);
+  const done = useRef(false);
+  useEffect(() => {
+    if (!seen) return;
+    if (done.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      done.current = true;
+      setShown(value);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      setShown(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else done.current = true;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [seen, value, duration]);
+  return (
+    <span ref={ref} className={`tabular-nums ${className}`}>
+      {shown}
+      {suffix}
+    </span>
   );
 };
 
 // ---------------- Ring gauge ----------------
+/** Ring sweeps from empty to `value` the first time it is seen (pair with <CountUp/> inside). */
 export const RingGauge: React.FC<{ value: number; size?: number; stroke?: number; tone?: 'good' | 'warn' | 'bad'; children?: React.ReactNode }> = ({
   value,
   size = 132,
@@ -116,11 +236,13 @@ export const RingGauge: React.FC<{ value: number; size?: number; stroke?: number
   tone = 'good',
   children,
 }) => {
+  const [ref, seen] = useSeenOnce<HTMLDivElement>();
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const color = { good: '#10b981', warn: '#f59e0b', bad: '#ef4444' }[tone];
+  const pct = seen ? Math.max(0, Math.min(100, value)) : 0;
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div ref={ref} className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-black/[0.07] dark:stroke-white/10" />
         <circle
@@ -132,8 +254,8 @@ export const RingGauge: React.FC<{ value: number; size?: number; stroke?: number
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
-          strokeDashoffset={c * (1 - Math.max(0, Math.min(100, value)) / 100)}
-          style={{ transition: 'stroke-dashoffset 0.9s cubic-bezier(0.2, 0, 0, 1)', filter: `drop-shadow(0 0 6px ${color}55)` }}
+          strokeDashoffset={c * (1 - pct / 100)}
+          style={{ transition: 'stroke-dashoffset 1.3s cubic-bezier(0.33, 1, 0.68, 1)', filter: `drop-shadow(0 0 6px ${color}55)` }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
@@ -248,7 +370,7 @@ export const Modal: React.FC<{ title: string; icon?: React.ReactNode; onClose: (
         <div className="flex items-center justify-between border-b border-black/10 pb-4 dark:border-white/10">
           <div className="flex items-center gap-2.5">
             {icon}
-            <h3 className={`text-base font-semibold ${titleText}`}>{title}</h3>
+            <h3 className={`font-hand text-2xl font-bold leading-tight ${titleText}`}>{title}</h3>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-black dark:hover:bg-zinc-900 dark:hover:text-white" aria-label="Close">
             <X className="h-5 w-5" />

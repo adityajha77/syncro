@@ -5,6 +5,8 @@ import { asyncHandler, parse, HttpError } from '../lib/http.js';
 import { hashPassword, verifyPassword, signToken, publicUserSelect } from '../lib/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { createWorkspaceForUser, listWorkspacesForUser } from './workspaces.routes.js';
+import { config } from '../config.js';
+import { DEMO_OWNER_EMAIL, seedDemoWorkspace } from '../services/demo.service.js';
 
 export const authRouter = Router();
 
@@ -93,5 +95,33 @@ authRouter.post(
     }
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(body.newPassword) } });
     res.json({ success: true, data: { changed: true } });
+  })
+);
+
+// ---------------- live demo ----------------
+// GET /api/v1/auth/demo — is the one-click demo available on this server?
+authRouter.get('/demo', (_req, res) => {
+  res.json({ success: true, data: { available: config.demoLogin } });
+});
+
+let seeding: Promise<unknown> | null = null;
+const DEMO_MAX_AGE_MS = 6 * 3600_000; // re-seed so "live" timers and meetings stay believable
+
+// POST /api/v1/auth/demo — signs in as the demo owner (no password exists for this account)
+authRouter.post(
+  '/demo',
+  asyncHandler(async (_req, res) => {
+    if (!config.demoLogin) throw new HttpError(404, 'The live demo is not enabled on this server');
+    const owner = await prisma.user.findUnique({
+      where: { email: DEMO_OWNER_EMAIL },
+      include: { memberships: { include: { workspace: { select: { createdAt: true } } } } },
+    });
+    const stale = !owner || !owner.memberships[0] || Date.now() - owner.memberships[0].workspace.createdAt.getTime() > DEMO_MAX_AGE_MS;
+    if (stale) {
+      seeding ??= seedDemoWorkspace().finally(() => (seeding = null));
+      await seeding;
+    }
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: DEMO_OWNER_EMAIL }, select: publicUserSelect });
+    res.json({ success: true, data: { token: signToken(user.id), user, workspaces: await listWorkspacesForUser(user.id) } });
   })
 );

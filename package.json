@@ -17,7 +17,8 @@
     "db:migrate": "npm run db:migrate -w @syncro/backend",
     "db:studio": "npm run db:studio -w @syncro/backend",
     "db:generate": "npm run db:generate -w @syncro/backend",
-    "db:secure": "npm run db:secure -w @syncro/backend"
+    "db:secure": "npm run db:secure -w @syncro/backend",
+    "db:seed-demo": "npm run db:seed-demo -w @syncro/backend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

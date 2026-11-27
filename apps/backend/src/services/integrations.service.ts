@@ -1,12 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { IntegrationProvider } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { config, isGithubConfigured, isGoogleConfigured } from '../config.js';
+import { config, isGithubConfigured, isGoogleConfigured, isZoomConfigured } from '../config.js';
 import { encryptSecret, decryptSecret } from '../lib/crypto.js';
 import { HttpError } from '../lib/http.js';
 
 /**
- * OAuth for GitHub and Google Calendar.
+ * OAuth for GitHub, Google Calendar (+ Meet) and Zoom.
  *
  * Flow: UI calls GET /integrations/:provider/connect (authenticated) and gets an
  * authorize URL whose `state` is a short-lived signed JWT naming the user. The
@@ -15,12 +15,16 @@ import { HttpError } from '../lib/http.js';
  * redirects back to the UI's /profile page.
  */
 
-export type ProviderKey = 'github' | 'google';
+export type ProviderKey = 'github' | 'google' | 'zoom';
 
-export const PROVIDERS: Record<ProviderKey, { enumValue: IntegrationProvider; configured: () => boolean }> = {
-  github: { enumValue: 'GITHUB', configured: isGithubConfigured },
-  google: { enumValue: 'GOOGLE', configured: isGoogleConfigured },
+export const PROVIDERS: Record<ProviderKey, { enumValue: IntegrationProvider; configured: () => boolean; label: string }> = {
+  github: { enumValue: 'GITHUB', configured: isGithubConfigured, label: 'GitHub' },
+  google: { enumValue: 'GOOGLE', configured: isGoogleConfigured, label: 'Google' },
+  zoom: { enumValue: 'ZOOM', configured: isZoomConfigured, label: 'Zoom' },
 };
+
+export const isProviderKey = (p: string): p is ProviderKey => p in PROVIDERS;
+const zoomBasicAuth = () => `Basic ${Buffer.from(`${config.zoom.clientId}:${config.zoom.clientSecret}`).toString('base64')}`;
 
 const GITHUB_SCOPES = 'read:user repo';
 export const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
@@ -64,9 +68,13 @@ export function verifyState(state: string, provider: ProviderKey): string {
 // ---------------- authorize URLs ----------------
 export function authorizeUrl(provider: ProviderKey, userId: string): string {
   if (!PROVIDERS[provider].configured()) {
-    throw new HttpError(503, `${provider === 'github' ? 'GitHub' : 'Google'} integration is not configured on the server`);
+    throw new HttpError(503, `${PROVIDERS[provider].label} integration is not configured on the server`);
   }
   const state = signState(userId, provider);
+  if (provider === 'zoom') {
+    const q = new URLSearchParams({ response_type: 'code', client_id: config.zoom.clientId, redirect_uri: callbackUrl('zoom'), state });
+    return `https://zoom.us/oauth/authorize?${q}`;
+  }
   if (provider === 'github') {
     const q = new URLSearchParams({
       client_id: config.github.clientId,
@@ -91,10 +99,10 @@ export function authorizeUrl(provider: ProviderKey, userId: string): string {
 }
 
 // ---------------- code exchange ----------------
-async function postForm(url: string, body: Record<string, string>) {
+async function postForm(url: string, body: Record<string, string>, headers: Record<string, string> = {}) {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded', ...headers },
     body: new URLSearchParams(body),
   });
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
@@ -104,7 +112,29 @@ async function postForm(url: string, body: Record<string, string>) {
   return json;
 }
 
+type ZoomMe = { id?: string; email?: string; display_name?: string };
+
 export async function completeOAuth(provider: ProviderKey, code: string, userId: string) {
+  if (provider === 'zoom') {
+    const tok = await postForm(
+      'https://zoom.us/oauth/token',
+      { grant_type: 'authorization_code', code, redirect_uri: callbackUrl('zoom') },
+      { Authorization: zoomBasicAuth() }
+    );
+    const accessToken = String(tok.access_token);
+    // /users/me needs a user:read scope; fall back gracefully if the Zoom app lacks it.
+    const me: ZoomMe = await fetch('https://api.zoom.us/v2/users/me', { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then((r) => (r.ok ? (r.json() as Promise<ZoomMe>) : {}))
+      .catch(() => ({}));
+    return saveIntegration(userId, 'ZOOM', {
+      accountId: me.id ?? 'me',
+      accountLabel: me.email ?? me.display_name ?? 'Zoom account',
+      scopes: String(tok.scope ?? ''),
+      accessToken,
+      refreshToken: tok.refresh_token ? String(tok.refresh_token) : undefined,
+      expiresInSec: Number(tok.expires_in) || 3600,
+    });
+  }
   if (provider === 'github') {
     const tok = await postForm('https://github.com/login/oauth/access_token', {
       client_id: config.github.clientId,
@@ -174,7 +204,8 @@ async function saveIntegration(
 export async function getAccessToken(userId: string, provider: IntegrationProvider): Promise<string> {
   const integ = await prisma.integration.findUnique({ where: { userId_provider: { userId, provider } } });
   if (!integ) {
-    throw new HttpError(400, `Connect your ${provider === 'GITHUB' ? 'GitHub' : 'Google'} account in your profile first`);
+    const label = provider === 'GITHUB' ? 'GitHub' : provider === 'ZOOM' ? 'Zoom' : 'Google';
+    throw new HttpError(400, `Connect your ${label} account in your profile first`);
   }
   if (!hasRequiredScopes(provider, integ.scopes)) {
     throw new HttpError(403, MISSING_CALENDAR_PERMISSION);
@@ -182,9 +213,31 @@ export async function getAccessToken(userId: string, provider: IntegrationProvid
   const notExpired = !integ.accessTokenExpires || integ.accessTokenExpires > new Date();
   if (notExpired) return decryptSecret(integ.accessTokenEnc);
 
-  // Google access tokens last ~1h; refresh using the stored refresh token.
-  if (provider !== 'GOOGLE' || !integ.refreshTokenEnc) {
+  // Google and Zoom access tokens last ~1h; refresh using the stored refresh token.
+  if (provider === 'GITHUB' || !integ.refreshTokenEnc) {
     throw new HttpError(401, 'Integration token expired — please reconnect');
+  }
+  if (provider === 'ZOOM') {
+    try {
+      const tok = await postForm(
+        'https://zoom.us/oauth/token',
+        { grant_type: 'refresh_token', refresh_token: decryptSecret(integ.refreshTokenEnc) },
+        { Authorization: zoomBasicAuth() }
+      );
+      const accessToken = String(tok.access_token);
+      await prisma.integration.update({
+        where: { id: integ.id },
+        data: {
+          accessTokenEnc: encryptSecret(accessToken),
+          accessTokenExpires: new Date(Date.now() + ((Number(tok.expires_in) || 3600) - 60) * 1000),
+          // Zoom rotates refresh tokens on every use.
+          ...(tok.refresh_token ? { refreshTokenEnc: encryptSecret(String(tok.refresh_token)) } : {}),
+        },
+      });
+      return accessToken;
+    } catch {
+      throw new HttpError(401, 'Zoom access was revoked or expired — please reconnect Zoom in your profile');
+    }
   }
   try {
     const tok = await postForm('https://oauth2.googleapis.com/token', {
@@ -215,6 +268,8 @@ export async function disconnect(userId: string, provider: IntegrationProvider) 
     const token = decryptSecret(integ.refreshTokenEnc ?? integ.accessTokenEnc);
     if (provider === 'GOOGLE') {
       await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: 'POST' });
+    } else if (provider === 'ZOOM') {
+      await postForm('https://zoom.us/oauth/revoke', { token }, { Authorization: zoomBasicAuth() });
     } else if (isGithubConfigured()) {
       await fetch(`https://api.github.com/applications/${config.github.clientId}/grant`, {
         method: 'DELETE',
@@ -267,6 +322,19 @@ export async function googleApi<T>(token: string, path: string, init: RequestIni
       throw new HttpError(503, 'Google Calendar API is not enabled for this Google Cloud project — enable it in the Google Cloud console.');
     }
     throw new HttpError(502, `Google Calendar error: ${body.error?.message || res.status}`);
+  }
+  return (res.status === 204 ? undefined : res.json()) as Promise<T>;
+}
+
+export async function zoomApi<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`https://api.zoom.us/v2${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...init.headers },
+  });
+  if (res.status === 401) throw new HttpError(401, 'Zoom access was revoked — please reconnect Zoom in your profile');
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new HttpError(502, `Zoom error: ${body.message || res.status}`);
   }
   return (res.status === 204 ? undefined : res.json()) as Promise<T>;
 }

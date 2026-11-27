@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { Layers, LayoutDashboard, UserRound, Home } from 'lucide-react';
+import { LayoutDashboard, UserRound, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Avatar, ThemeToggle } from './ui';
+import { SyncroMark } from './brand';
 
 const pill = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-1.5 rounded-xl px-3.5 py-2 transition-all duration-200 ${
@@ -23,7 +24,7 @@ export const AppHeader: React.FC<{ left?: React.ReactNode; right?: React.ReactNo
         <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3 lg:flex-none">
           <Link to="/" className="group flex shrink-0 items-center gap-2.5" title="Syncro home">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-white shadow-sm transition-transform group-hover:scale-105 dark:bg-white dark:text-black">
-              <Layers className="h-5 w-5 stroke-[2.5]" />
+              <SyncroMark className="h-6 w-6" />
             </div>
             <span className="hidden text-xl font-extrabold tracking-tight text-black dark:text-white xl:inline">Syncro</span>
           </Link>

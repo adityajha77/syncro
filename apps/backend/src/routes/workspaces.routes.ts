@@ -12,6 +12,8 @@ import { tasksRouter } from './tasks.routes.js';
 import { commitsRouter } from './commits.routes.js';
 import { eventsRouter } from './events.routes.js';
 import { telemetryRouter } from './telemetry.routes.js';
+import { timeRouter } from './time.routes.js';
+import { meetingsRouter } from './meetings.routes.js';
 
 export const workspacesRouter = Router();
 workspacesRouter.use(requireAuth);
@@ -295,3 +297,5 @@ workspacesRouter.use('/:workspaceId/tasks', requireMember(), tasksRouter);
 workspacesRouter.use('/:workspaceId/commits', requireMember(), commitsRouter);
 workspacesRouter.use('/:workspaceId/events', requireMember(), eventsRouter);
 workspacesRouter.use('/:workspaceId/telemetry', requireMember(), telemetryRouter);
+workspacesRouter.use('/:workspaceId/time', requireMember(), timeRouter);
+workspacesRouter.use('/:workspaceId/meetings', requireMember(), meetingsRouter);

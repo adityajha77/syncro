@@ -1,7 +1,7 @@
 // Shared domain types — mirror apps/backend/prisma/schema.prisma
 
 export type Role = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type EventCategory = 'STANDUP' | 'REVIEW' | 'DEADLINE' | 'SYNC';
 
@@ -18,7 +18,14 @@ export type ActivityType =
   | 'EVENT_DELETED'
   | 'REPO_CONNECTED'
   | 'MEMBER_LEFT'
-  | 'COMMITS_SYNCED';
+  | 'COMMITS_SYNCED'
+  | 'TIMER_STARTED'
+  | 'TIMER_STOPPED'
+  | 'TIME_LOGGED'
+  | 'COMMENT_ADDED'
+  | 'CHECKLIST_UPDATED'
+  | 'MEETING_SCHEDULED'
+  | 'MEETING_STARTED';
 
 export interface User {
   id: string;
@@ -55,12 +62,81 @@ export interface Task {
   dueDate: string | null;
   label: string | null;
   completedAt: string | null;
+  position: number;
+  estimateMinutes: number | null;
   workspaceId: string;
   assigneeId: string | null;
   assignee: User | null;
   createdBy: User;
   createdAt: string;
   updatedAt: string;
+  checklistTotal: number;
+  checklistDone: number;
+  commentCount: number;
+  /** Seconds from finished time entries; add a running timer's elapsed time on top. */
+  trackedSeconds: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  position: number;
+}
+
+export interface TaskComment {
+  id: string;
+  body: string;
+  author: User;
+  createdAt: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  note: string | null;
+  manual: boolean;
+  userId: string;
+  user: User;
+  workspaceId: string;
+  taskId: string | null;
+  task: { id: string; title: string; status: TaskStatus } | null;
+}
+
+export type MeetingProvider = 'INSTANT' | 'GOOGLE_MEET' | 'ZOOM';
+
+export interface Meeting {
+  id: string;
+  title: string;
+  provider: MeetingProvider;
+  joinUrl: string;
+  startsAt: string;
+  durationMinutes: number;
+  taskId: string | null;
+  task: { id: string; title: string } | null;
+  createdBy: User;
+  createdAt: string;
+}
+
+export interface TaskDetail extends Task {
+  checklist: ChecklistItem[];
+  comments: TaskComment[];
+  timeEntries: TimeEntry[];
+  meetings: Meeting[];
+}
+
+type MiniTask = { id: string; title: string; priority: TaskPriority };
+
+export interface TeamMemberPulse {
+  user: User;
+  role: Role;
+  online: boolean;
+  activeTimer: { id: string; startedAt: string; note: string | null; task: { id: string; title: string; status: TaskStatus } | null } | null;
+  todaySeconds: number;
+  weekSeconds: number;
+  counts: { todo: number; inProgress: number; review: number; doneToday: number; overdue: number };
+  standup: { done: MiniTask[]; doing: MiniTask[]; next: MiniTask[]; blockers: MiniTask[]; trackedSeconds24h: number; commits24h: number };
 }
 
 export interface Commit {
@@ -86,7 +162,7 @@ export interface CalendarEvent {
   createdBy: User;
 }
 
-export type IntegrationKey = 'github' | 'google';
+export type IntegrationKey = 'github' | 'google' | 'zoom';
 
 export interface IntegrationStatus {
   provider: IntegrationKey;

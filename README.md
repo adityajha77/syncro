@@ -119,6 +119,9 @@ npm run dev
 
 ---
 
+### 5. Live demo (optional)
+Set `DEMO_LOGIN=true` in `apps/backend/.env` and a **Try the live demo** button appears on the home and sign-in pages. It signs you into a ready-made workspace (4 teammates, a full board, a week of timesheets, live timers, meetings). The demo accounts have no password, so the button is the only way in. Rebuild the demo data any time with `npm run db:seed-demo` (it also refreshes itself every 6 hours).
+
 ## 🧩 Core Concepts
 
 | Concept | Where | Notes |
@@ -128,18 +131,25 @@ npm run dev
 | **Activity Ledger** | `services/activity.service.ts` | Every mutation appends an `ActivityRecord` and pushes `ACTIVITY_RECORDED` live. Timeline, telemetry and (later) standup rollups read from it. |
 | **Realtime gateway** | `lib/websocket.ts` | `ws://host/ws?token=JWT`, then `JOIN_WORKSPACE`. Per-workspace rooms, presence (online / typing / viewing), heartbeat cleanup. |
 | **Telemetry** | `routes/telemetry.routes.ts` | Health score, completion rate, overdue count, 24h throughput, DB latency, online members. |
+| **Kanban board** | `routes/tasks.routes.ts`, `components/KanbanTaskBoard.tsx` | To Do → In Progress → Review → Done with drag & drop (mouse, touch, keyboard). `POST /tasks/:id/move` re-numbers the column so order is identical for everyone, live. WIP warning when too much is in flight. |
+| **Cards** | `components/TaskDrawer.tsx` | Checklists with progress, threaded comments, estimates vs tracked time, assignee / priority / due date / label, "start a call about this card". |
+| **Live time tracking** | `routes/time.routes.ts` | One running timer per user, visible to the whole team as it ticks. Starting a timer on a To Do card moves it to In Progress. Manual logging, per-day/per-person timesheets, CSV export. |
+| **Team live + standups** | `GET /telemetry/team` | Who is working on what right now, hours today/this week, workload per person, and an auto-written daily standup (done / doing / blockers) from the last 24h. |
+| **Meetings** | `routes/meetings.routes.ts` | One-click instant rooms (Jitsi, no account needed), real Google Meet links (via Google Calendar) and Zoom meetings. Live meetings show a Join bar for everyone. |
 
-### 🔌 Integrations (GitHub + Google Calendar)
+### 🔌 Integrations (GitHub, Google Calendar + Meet, Zoom)
 Each user connects their own accounts on **/profile**. Tokens are stored AES-256-GCM encrypted (`TOKEN_ENCRYPTION_KEY`).
 
 | Provider | Create credentials | Callback / redirect URL |
 | :--- | :--- | :--- |
 | GitHub | github.com → Settings → Developer settings → **OAuth Apps** → New | `http://localhost:5000/api/v1/integrations/github/callback` |
 | Google | console.cloud.google.com → enable **Google Calendar API** → OAuth consent screen (add yourself as a test user) → Credentials → **OAuth client ID (Web)** | `http://localhost:5000/api/v1/integrations/google/callback` |
+| Zoom | marketplace.zoom.us → Develop → Build App → **General App** (user-managed OAuth). Scopes: `meeting:write:meeting`, `meeting:delete:meeting`, `user:read:user` | `http://localhost:5000/api/v1/integrations/zoom/callback` |
 
-Put the IDs/secrets in `apps/backend/.env` (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) and restart the backend.
+Put the IDs/secrets in `apps/backend/.env` (`GITHUB_*`, `GOOGLE_*`, `ZOOM_*` client id + secret) and restart the backend. Each integration is optional; instant meetings need no setup.
 - **GitHub:** pick a repo per workspace; commits sync on demand and every 3 minutes in the background, authors are matched to members by GitHub login.
-- **Google:** your events appear on the workspace calendar; team events can be mirrored into your Google Calendar.
+- **Google:** your events appear on the workspace calendar; team events can be mirrored into your Google Calendar; schedule Google Meet calls (optionally emailing invites to the team).
+- **Zoom:** schedule Zoom meetings from the Meetings tab; cancelling in Syncro cancels them in Zoom.
 
 ### 🤝 Invites
 Every workspace has an invite code (e.g. `K7QX-M2PA`) and link (`/join/K7QX-M2PA`). Members+ can share it; admins can regenerate it (old code stops working).
@@ -158,6 +168,13 @@ POST /workspaces/join {code}   POST /workspaces/:id/invite-code   DELETE /worksp
 POST /workspaces/:id/commits/sync
 GET /integrations   GET /integrations/:provider/connect   GET /integrations/:provider/callback (public)
 DELETE /integrations/:provider   GET /integrations/github/repos   GET /integrations/google/events
+GET /workspaces/:id/tasks/:taskId                  POST /workspaces/:id/tasks/:taskId/move {status,index}
+POST|PATCH|DELETE /workspaces/:id/tasks/:taskId/checklist[/:itemId]
+POST|DELETE /workspaces/:id/tasks/:taskId/comments[/:commentId]
+GET /workspaces/:id/time/active   POST /workspaces/:id/time/start|stop
+GET|POST /workspaces/:id/time/entries   DELETE /workspaces/:id/time/entries/:entryId
+GET /workspaces/:id/telemetry/team?dayStart&weekStart
+GET|POST /workspaces/:id/meetings   DELETE /workspaces/:id/meetings/:meetingId
 ```
 
 ---

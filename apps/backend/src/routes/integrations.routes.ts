@@ -15,13 +15,14 @@ import {
   githubApi,
   googleApi,
   hasRequiredScopes,
+  isProviderKey,
 } from '../services/integrations.service.js';
 
 export const integrationsRouter = Router();
 
 const providerParam = (raw: unknown): ProviderKey => {
   const p = String(raw);
-  if (p !== 'github' && p !== 'google') throw new HttpError(404, 'Unknown integration');
+  if (!isProviderKey(p)) throw new HttpError(404, 'Unknown integration');
   return p;
 };
 

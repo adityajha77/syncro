@@ -16,7 +16,7 @@
   }
 
   html {
-    font-size: 17.5px;
+    font-size: 16px;
     scroll-behavior: smooth;
   }
 
@@ -432,3 +432,156 @@
     transition: none;
   }
 }
+
+/* Confetti burst when a card lands in Done (Peak-End Rule). */
+.confetti-bit {
+  position: fixed;
+  z-index: 200;
+  width: 7px;
+  height: 11px;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: confetti 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes confetti {
+  0% { transform: translate(-50%, -50%) rotate(0); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 60px)) rotate(var(--rot)); opacity: 0; }
+}
+
+/* Side drawer for task details. */
+@keyframes drawer-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.drawer-in { animation: drawer-in 0.22s ease-out; }
+
+/* Thin scrollbars for board columns. */
+.thin-scroll { scrollbar-width: thin; scrollbar-color: rgb(0 0 0 / 0.15) transparent; }
+.dark .thin-scroll { scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
+
+/* Categorical chart series (validated palette; fixed order, never cycled). */
+:root {
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+}
+.dark {
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+  --series-5: #d55181; --series-6: #0ca30c; --series-7: #9085e9; --series-8: #e66767;
+}
+
+/* ================= Brand motion (shared by marketing + app) ================= */
+
+/* Handwritten accents ("your workflow, one place") */
+.hand { font-family: 'Caveat', cursive; font-weight: 600; letter-spacing: 0.01em; }
+
+/* Typewriter: letters fade up in, and dissolve out while deleting. */
+@keyframes char-in { from { opacity: 0; transform: translateY(0.25em); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes char-out { from { opacity: 1; filter: none; transform: none; } to { opacity: 0; filter: blur(6px); transform: translateY(-0.2em) scale(0.92); } }
+.char-in { display: inline-block; white-space: pre; animation: char-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.char-out { display: inline-block; white-space: pre; animation: char-out 0.3s ease-in forwards; }
+@keyframes caret-blink { 0%, 45% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.caret { display: inline-block; width: 3px; margin-left: 2px; border-radius: 2px; animation: caret-blink 1s steps(1) infinite; }
+
+/* Hand-drawn strokes draw themselves when revealed. */
+.draw-path { stroke-dasharray: var(--len, 600); stroke-dashoffset: var(--len, 600); }
+.is-visible .draw-path, .draw-now .draw-path { animation: draw 1.1s cubic-bezier(0.65, 0, 0.35, 1) forwards; animation-delay: var(--delay, 0.2s); }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* Scroll reveal */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); transition-delay: var(--delay, 0s); }
+.reveal.is-visible { opacity: 1; transform: none; }
+
+/* 3D tilt cards (pointer-driven; see TiltCard) */
+.tilt { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0); transition: transform 0.25s ease-out; transform-style: preserve-3d; will-change: transform; }
+
+/* Gently floating notes */
+@keyframes float-y { 0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); } 50% { transform: translateY(-6px) rotate(var(--rot, 0deg)); } }
+.float-y { animation: float-y 5s ease-in-out infinite; }
+
+/* Marquee (integrations) */
+@keyframes marquee { to { transform: translateX(-50%); } }
+.marquee { animation: marquee 32s linear infinite; }
+.marquee:hover { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .char-in, .char-out, .caret, .float-y, .marquee { animation: none !important; }
+  .draw-path { stroke-dashoffset: 0; animation: none !important; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .tilt { transform: none !important; }
+}
+
+/* ================= Tinted themes (Blush · Sky · Lavender) =================
+   Light themes with softly colored surfaces. :where() keeps specificity equal to
+   Tailwind's utilities, so hover states still win. */
+html.theme-blush {
+  --t-bg: #fde9f2; --t-card: #fff7fb; --t-soft: #fbd8e7; --t-line: rgba(190, 24, 93, 0.13);
+  --page-glow: rgba(236, 72, 153, 0.12); --page-spot: rgba(236, 72, 153, 0.07);
+  --spot-fill: rgba(236, 72, 153, 0.08); --spot-border: rgba(219, 39, 119, 0.4);
+}
+html.theme-sky {
+  --t-bg: #e6f0ff; --t-card: #f6faff; --t-soft: #d4e5fe; --t-line: rgba(29, 78, 216, 0.13);
+  --page-glow: rgba(59, 130, 246, 0.12); --page-spot: rgba(59, 130, 246, 0.07);
+  --spot-fill: rgba(59, 130, 246, 0.08); --spot-border: rgba(37, 99, 235, 0.4);
+}
+html.theme-lavender {
+  --t-bg: #efe9ff; --t-card: #faf8ff; --t-soft: #e0d7fd; --t-line: rgba(109, 40, 217, 0.13);
+  --page-glow: rgba(139, 92, 246, 0.12); --page-spot: rgba(139, 92, 246, 0.07);
+  --spot-fill: rgba(139, 92, 246, 0.08); --spot-border: rgba(124, 58, 237, 0.4);
+}
+html.tinted body { background-color: var(--t-bg); }
+:where(html.tinted) .bg-white { background-color: var(--t-card); }
+/* the page surface itself */
+:where(html.tinted) .min-h-screen.bg-white { background-color: var(--t-bg); }
+:where(html.tinted) .bg-white\/90 { background-color: color-mix(in srgb, var(--t-card) 90%, transparent); }
+:where(html.tinted) .bg-white\/80 { background-color: color-mix(in srgb, var(--t-bg) 80%, transparent); }
+:where(html.tinted) .bg-white\/70 { background-color: color-mix(in srgb, var(--t-card) 70%, transparent); }
+:where(html.tinted) .bg-white\/60 { background-color: color-mix(in srgb, var(--t-card) 60%, transparent); }
+:where(html.tinted) .bg-zinc-50,
+:where(html.tinted) .bg-zinc-50\/80,
+:where(html.tinted) .bg-zinc-50\/70 { background-color: color-mix(in srgb, var(--t-card) 85%, transparent); }
+:where(html.tinted) .bg-zinc-100 { background-color: var(--t-soft); }
+:where(html.tinted) .border-black\/10 { border-color: var(--t-line); }
+:where(html.tinted) .bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, var(--t-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--t-line) 1px, transparent 1px);
+}
+
+/* Gentle nudge on the first playable card until someone drags it. */
+@keyframes wiggle { 0%, 82%, 100% { transform: rotate(0); } 86% { transform: rotate(-2.5deg); } 90% { transform: rotate(2.5deg); } 94% { transform: rotate(-1.5deg); } }
+.animate-wiggle { animation: wiggle 3.2s ease-in-out 1.5s infinite; }
+@media (prefers-reduced-motion: reduce) { .animate-wiggle { animation: none; } }
+
+/* ================= Handwritten website =================
+   The marketing site and sign-in page are written in Caveat end to end.
+   Caveat runs small, so body sizes step up; the live product preview
+   (.not-hand) keeps the app's own font so it looks like the real product. */
+.hand-site { font-family: 'Caveat', cursive; font-weight: 500; letter-spacing: 0.005em; }
+.hand-site .font-medium, .hand-site .font-semibold { font-weight: 600; }
+.hand-site .font-bold, .hand-site .font-extrabold, .hand-site .font-black { font-weight: 700; }
+.hand-site :is(.text-xs):not(.not-hand *) { font-size: 1.05rem; line-height: 1.35rem; }
+.hand-site :is(.text-sm):not(.not-hand *) { font-size: 1.2rem; line-height: 1.5rem; }
+.hand-site :is(.text-\[0\.95rem\]):not(.not-hand *) { font-size: 1.3rem; line-height: 1.6rem; }
+.hand-site :is(.text-base):not(.not-hand *) { font-size: 1.35rem; line-height: 1.7rem; }
+.hand-site :is(.text-lg):not(.not-hand *) { font-size: 1.5rem; line-height: 1.85rem; }
+.hand-site :is(.text-xl):not(.not-hand *) { font-size: 1.7rem; line-height: 2rem; }
+.hand-site :is(.text-2xl):not(.not-hand *) { font-size: 1.9rem; line-height: 2.2rem; }
+.hand-site input, .hand-site textarea, .hand-site select { font-size: 1.2rem; }
+.hand-site .not-hand, .hand-site .font-mono { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: normal; }
+.hand-site .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* Final CTA: the glow slowly drifts through the brand colors. */
+@keyframes glow-cycle {
+  0%, 100% { background-color: rgba(16, 185, 129, 0.38); transform: translate(0, 0) scale(1); }
+  25% { background-color: rgba(139, 92, 246, 0.42); transform: translate(40px, 20px) scale(1.1); }
+  50% { background-color: rgba(56, 189, 248, 0.36); transform: translate(10px, 50px) scale(0.95); }
+  75% { background-color: rgba(236, 72, 153, 0.34); transform: translate(-30px, 10px) scale(1.05); }
+}
+.glow-cycle { animation: glow-cycle 14s ease-in-out infinite; }
+.glow-cycle-2 { animation: glow-cycle 14s ease-in-out -7s infinite; }
+
+/* Handwritten link-button: underline draws in on hover */
+.hand-link { position: relative; }
+.hand-link::after { content: ''; position: absolute; left: 0.5rem; right: 2.2rem; bottom: 0.35rem; height: 3px; border-radius: 3px; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hand-link:hover::after, .hand-link:focus-visible::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) { .glow-cycle, .glow-cycle-2 { animation: none; } }

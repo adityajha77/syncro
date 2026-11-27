@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Calendar,
   Check,
   Copy,
+  DoorOpen,
   KeyRound,
   LayoutDashboard,
   Link2,
@@ -12,15 +12,17 @@ import {
   Plus,
   RefreshCw,
   Shield,
-  User as UserIcon,
-  Users,
-  DoorOpen,
   Sparkles,
+  User as UserIcon,
   UserPlus,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import type { IntegrationKey, IntegrationStatus, Workspace } from '../types';
+
+const PROVIDER_LABEL: Record<IntegrationKey, string> = { github: 'GitHub', google: 'Google Calendar', zoom: 'Zoom' };
+import { GoogleCalendarMark, ZoomMark } from '../components/brand';
 import { AppBackdrop, Avatar, Bento, BentoHeader, GithubIcon, ghostBtn, inputCls, labelCls, primaryBtn, useToast, wellCls } from '../components/ui';
 import { AppHeader } from '../components/AppHeader';
 
@@ -74,7 +76,7 @@ export const ProfilePage: React.FC = () => {
     const key = params.toString();
     if (handledOAuthResult.current === key) return;
     handledOAuthResult.current = key;
-    const label = which === 'github' ? 'GitHub' : 'Google Calendar';
+    const label = PROVIDER_LABEL[which as IntegrationKey] ?? which;
     if (params.get('status') === 'connected') toast('success', `${label} connected!`);
     else toast('error', `${label} connection failed: ${params.get('message') || 'unknown error'}`);
     setParams({}, { replace: true });
@@ -115,7 +117,7 @@ export const ProfilePage: React.FC = () => {
     setIntegBusy(p);
     try {
       const { url } = await api.connectUrl(p);
-      window.location.href = url; // full redirect to GitHub / Google consent screen
+      window.location.href = url; // full redirect to the provider's consent screen
     } catch (err) {
       fail(err);
       setIntegBusy(null);
@@ -126,7 +128,7 @@ export const ProfilePage: React.FC = () => {
     setIntegBusy(p);
     try {
       await api.disconnectIntegration(p);
-      toast('success', `${p === 'github' ? 'GitHub' : 'Google Calendar'} disconnected`);
+      toast('success', `${PROVIDER_LABEL[p]} disconnected`);
       loadIntegrations();
     } catch (err) {
       fail(err);
@@ -207,13 +209,18 @@ export const ProfilePage: React.FC = () => {
   const integrationMeta: Record<IntegrationKey, { title: string; icon: React.ReactNode; blurb: string }> = {
     github: {
       title: 'GitHub',
-      icon: <GithubIcon className="h-7 w-7" />,
+      icon: <GithubIcon className="h-8 w-8 text-black dark:text-white" />,
       blurb: 'Pick a repository per workspace and Syncro pulls real commits into the feed and activity ledger.',
     },
     google: {
       title: 'Google Calendar',
-      icon: <Calendar className="h-7 w-7" />,
-      blurb: 'See your meetings on the workspace calendar and add team events to your Google Calendar.',
+      icon: <GoogleCalendarMark className="h-8 w-8" />,
+      blurb: 'See your meetings on the workspace calendar, add team events to Google and create Google Meet links.',
+    },
+    zoom: {
+      title: 'Zoom',
+      icon: <ZoomMark className="h-8 w-8" />,
+      blurb: 'Schedule real Zoom meetings from Syncro. Your team gets the join link on the Meetings tab.',
     },
   };
 
@@ -238,8 +245,11 @@ export const ProfilePage: React.FC = () => {
               <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-white/10 dark:bg-black dark:text-zinc-300">
                 <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> Your profile
               </span>
-              <h1 className="truncate text-3xl font-extrabold tracking-tight text-black dark:text-white sm:text-4xl">{user.name}</h1>
+              <h1 className="truncate font-hand text-5xl font-bold leading-tight text-black dark:text-white">{user.name}</h1>
               <p className="truncate text-base text-zinc-500 dark:text-zinc-400">{user.email}</p>
+              {connectedCount < 3 && (
+                <p className="hand mt-1 text-xl text-emerald-600 dark:text-emerald-400">connect your tools below to sync everything ↓</p>
+              )}
             </div>
           </div>
 
@@ -247,7 +257,7 @@ export const ProfilePage: React.FC = () => {
             {[
               { k: 'Member since', v: new Date(user.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) },
               { k: 'Workspaces', v: workspaces.length },
-              { k: 'Connected apps', v: `${connectedCount}/2` },
+              { k: 'Connected apps', v: `${connectedCount}/3` },
             ].map((s) => (
               <div key={s.k} className={`${wellCls} px-4 py-3`}>
                 <div className="text-xs font-medium text-zinc-500">{s.k}</div>
@@ -291,7 +301,7 @@ export const ProfilePage: React.FC = () => {
         </Bento>
 
         {/* ================= INTEGRATIONS ================= */}
-        {(['github', 'google'] as IntegrationKey[]).map((key, i) => {
+        {(['github', 'google', 'zoom'] as IntegrationKey[]).map((key, i) => {
           const meta = integrationMeta[key];
           const st = integrations?.find((x) => x.provider === key);
           const state = !integrations
@@ -313,7 +323,7 @@ export const ProfilePage: React.FC = () => {
           return (
             <Bento key={key} className="fade-up flex flex-col lg:col-span-4" style={{ animationDelay: `${120 + i * 60}ms` }}>
               <div className="mb-5 flex items-start justify-between gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black text-white shadow-lg dark:bg-white dark:text-black">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-black/10 bg-white shadow-md dark:border-white/10 dark:bg-zinc-900">
                   {meta.icon}
                 </div>
                 <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${pill.cls}`}>
@@ -321,7 +331,7 @@ export const ProfilePage: React.FC = () => {
                   {pill.label}
                 </span>
               </div>
-              <h2 className="text-lg font-bold text-black dark:text-white">{meta.title}</h2>
+              <h2 className="font-hand text-3xl font-bold leading-tight text-black dark:text-white">{meta.title}</h2>
               {st?.connected && st.accountLabel && <p className="truncate text-sm font-medium text-zinc-700 dark:text-zinc-300">{st.accountLabel}</p>}
               <p className="mb-5 mt-2 flex-1 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{meta.blurb}</p>
 
@@ -359,32 +369,6 @@ export const ProfilePage: React.FC = () => {
           );
         })}
 
-        {/* ================= SECURITY ================= */}
-        <Bento className="fade-up flex flex-col lg:col-span-4" style={{ animationDelay: '240ms' }}>
-          <BentoHeader icon={<Shield className="h-5 w-5" />} title="Security" subtitle="Change your password" />
-          <form onSubmit={changePassword} className="flex flex-1 flex-col gap-4">
-            <div>
-              <label className={labelCls}>Current password</label>
-              <input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoComplete="current-password" className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>New password</label>
-              <input
-                type="password"
-                value={newPw}
-                onChange={(e) => setNewPw(e.target.value)}
-                autoComplete="new-password"
-                placeholder="At least 8 characters"
-                className={inputCls}
-              />
-            </div>
-            <button type="submit" disabled={savingPw || !currentPw || newPw.length < 8} className={`${primaryBtn} mt-auto`}>
-              {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} Change password
-            </button>
-          </form>
-        </Bento>
-
-        {/* ================= WORKSPACES ================= */}
         <Bento className="fade-up lg:col-span-8" style={{ animationDelay: '300ms' }}>
           <BentoHeader
             icon={<Users className="h-5 w-5" />}
@@ -490,6 +474,32 @@ export const ProfilePage: React.FC = () => {
             </div>
           </form>
         </Bento>
+        {/* ================= SECURITY ================= */}
+        <Bento className="fade-up flex flex-col lg:col-span-12" style={{ animationDelay: '420ms' }}>
+          <BentoHeader icon={<Shield className="h-5 w-5" />} title="Security" subtitle="Change your password" />
+          <form onSubmit={changePassword} className="grid flex-1 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <div>
+              <label className={labelCls}>Current password</label>
+              <input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoComplete="current-password" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>New password</label>
+              <input
+                type="password"
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                className={inputCls}
+              />
+            </div>
+            <button type="submit" disabled={savingPw || !currentPw || newPw.length < 8} className={`${primaryBtn} mt-auto`}>
+              {savingPw ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />} Change password
+            </button>
+          </form>
+        </Bento>
+
+        {/* ================= WORKSPACES ================= */}
       </main>
     </div>
   );

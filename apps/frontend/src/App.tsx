@@ -3,11 +3,10 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigat
 import { Loader2 } from 'lucide-react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ToastProvider, useToast } from './components/ui';
+import { AppBackdrop, ToastProvider, useToast } from './components/ui';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
-import { RoadmapPage } from './pages/RoadmapPage';
-import { ComingSoonPage } from './pages/ComingSoonPage';
+import { PricingPage } from './pages/PricingPage';
 import { AuthPage } from './pages/AuthPage';
 import { WorkspaceApp } from './pages/WorkspaceApp';
 import { ProfilePage } from './pages/ProfilePage';
@@ -15,7 +14,7 @@ import { api } from './services/api';
 
 /**
  * Routes
- *   /            /roadmap   /pricing        marketing site (Navbar knows if you're signed in)
+ *   /            /pricing                   marketing site (Navbar knows if you're signed in)
  *   /login       /signup                    auth (redirects to ?next= or /app when done)
  *   /app                                    workspace dashboard        (signed in)
  *   /profile                                profile & integrations     (signed in)
@@ -29,11 +28,16 @@ const FullPageSpinner: React.FC = () => (
   </div>
 );
 
+/** Every page (and every workspace view) opens at the top — including after a reload. */
 const ScrollToTop: React.FC = () => {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const view = new URLSearchParams(search).get('view'); // opening a card (?task=) must not jump
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+  }, []);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-  }, [pathname]);
+  }, [pathname, view]);
   return null;
 };
 
@@ -48,25 +52,16 @@ const RequireAuth: React.FC = () => {
   return <Outlet />;
 };
 
+/** Same surface as the app (backdrop grid + cursor spotlight) so the site and product feel like one thing. */
 const MarketingLayout: React.FC = () => (
-  <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black transition-colors duration-300">
+  <div className="hand-site relative flex min-h-screen flex-col bg-white text-zinc-900 antialiased transition-colors duration-300 selection:bg-black selection:text-white dark:bg-black dark:text-zinc-100 dark:selection:bg-white dark:selection:text-black">
+    <AppBackdrop />
     <Navbar />
-    <main className="flex-1">
+    <main className="relative z-10 flex-1">
       <Outlet />
     </main>
   </div>
 );
-
-const Home: React.FC = () => {
-  const navigate = useNavigate();
-  const { status } = useAuth();
-  return (
-    <HomePage
-      onNavigateToRoadmap={() => navigate('/roadmap')}
-      onNavigateToComingSoon={() => navigate(status === 'authenticated' ? '/app' : '/signup')}
-    />
-  );
-};
 
 /** /join/:code — joins the workspace and opens it. */
 const JoinRoute: React.FC = () => {
@@ -114,18 +109,8 @@ export const App: React.FC = () => (
           <ScrollToTop />
           <Routes>
             <Route element={<MarketingLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/roadmap" element={<RoadmapPage />} />
-              <Route
-                path="/pricing"
-                element={
-                  <ComingSoonPage
-                    title="Pricing Tiers"
-                    subtitle="Our transparent, team-friendly pricing tiers will be unveiled soon. Enter your email for early access."
-                    onBack={() => window.history.back()}
-                  />
-                }
-              />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/pricing" element={<PricingPage />} />
             </Route>
 
             <Route path="/login" element={<AuthPage mode="SIGN_IN" />} />

@@ -1,16 +1,26 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'></path><polyline points='3.27 6.96 12 12.01 20.73 6.96'></polyline><line x1='12' y1='22.08' x2='12' y2='12'></line></svg>" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2309090b'/><g transform='translate(4 4)' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M4.6 11.2A7.5 7.5 0 0 1 17.4 6.4'/><path d='M18.2 2.9v3.9h-3.9'/><path d='M19.4 12.8A7.5 7.5 0 0 1 6.6 17.6'/><path d='M5.8 21.1v-3.9h3.9'/></g><circle cx='16' cy='16' r='2.4' fill='%2310b981'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Syncro - Connected Workspace with Real-time Activity Timeline, Health Dashboard, and Work Summary." />
+    <meta name="description" content="Syncro — your team's board, live timers, standups and meetings in one tab." />
     <title>Syncro | Connected Workspace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Apply the saved theme before first paint (no dark/light flash on load).
+      try {
+        var t = localStorage.getItem('syncro-theme');
+        if (['light', 'dark', 'blush', 'sky', 'lavender'].indexOf(t) < 0) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        var c = document.documentElement.classList;
+        c.add(t === 'dark' ? 'dark' : 'light');
+        if (t !== 'dark' && t !== 'light') c.add('tinted', 'theme-' + t);
+      } catch (e) {}
+    </script>
   </head>
-  <body class="bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

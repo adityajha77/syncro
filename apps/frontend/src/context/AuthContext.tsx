@@ -23,6 +23,8 @@ interface AuthContextValue {
   setUser: (u: User) => void;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
+  /** Signs in to the shared demo workspace (only when the server enables it). */
+  loginDemo: () => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -98,6 +100,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [startSession]
   );
 
+  const loginDemo = useCallback(async () => startSession((await api.demoLogin()).token), [startSession]);
+
   const upsertWorkspace = useCallback((ws: Workspace) => {
     setWorkspaces((prev) =>
       prev.some((w) => w.id === ws.id) ? prev.map((w) => (w.id === ws.id ? { ...w, ...ws } : w)) : [...prev, ws]
@@ -122,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser,
     login,
     signup,
+    loginDemo,
     logout,
     refresh,
   };

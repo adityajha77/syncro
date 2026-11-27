@@ -15,7 +15,7 @@ export interface RecordActivityInput {
   actorId: string;
   type: ActivityType;
   summary: string;
-  entityType?: 'task' | 'commit' | 'event' | 'workspace' | 'member';
+  entityType?: 'task' | 'commit' | 'event' | 'workspace' | 'member' | 'time' | 'meeting';
   entityId?: string;
   metadata?: Prisma.InputJsonValue;
 }

@@ -1,7 +1,14 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { KanbanTaskBoard } from '../components/KanbanTaskBoard';
 import { ActivityTimelineStream } from '../components/ActivityTimelineStream';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { TaskDrawer } from '../components/TaskDrawer';
+import { TeamView } from '../components/TeamView';
+import { TimesheetView } from '../components/TimesheetView';
+import { MeetingsView, isLive } from '../components/MeetingsView';
+import { WorkspaceContext, type WorkspaceCtx } from '../context/WorkspaceContext';
+import { STATUS_PILL, clock, entrySeconds, useNow } from '../lib/workflow';
+import { HandNote } from '../components/brand';
 import {
   Activity,
   AlertTriangle,
@@ -19,7 +26,13 @@ import {
   Flame,
   GitBranch,
   GitCommit,
+  LayoutDashboard,
   Link2,
+  Pause,
+  Play,
+  Radio,
+  SquareKanban,
+  Timer,
   Loader2,
   Plus,
   RefreshCw,
@@ -41,6 +54,7 @@ import {
   GithubIcon,
   Modal,
   RingGauge,
+  CountUp,
   chipCls,
   ghostBtn,
   inputCls,
@@ -59,8 +73,10 @@ import type {
   GithubRepo,
   GoogleEvent,
   IntegrationStatus,
+  Meeting,
   Member,
   Task,
+  TimeEntry,
   TaskPriority,
   TaskStatus,
   WSMessage,
@@ -97,11 +113,7 @@ const PRIORITY_STYLE: Record<TaskPriority, string> = {
   MEDIUM: 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300',
   LOW: 'border-black/10 bg-zinc-100 text-zinc-600 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300',
 };
-const STATUS_STYLE: Record<TaskStatus, string> = {
-  TODO: 'border-black/10 bg-white text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300',
-  IN_PROGRESS: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-200',
-  DONE: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
-};
+const STATUS_STYLE: Record<TaskStatus, string> = STATUS_PILL;
 const CATEGORY_STYLE: Record<EventCategory, string> = {
   STANDUP: 'border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300',
   REVIEW: 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300',
@@ -116,6 +128,59 @@ const ACTIVITY_DOT: Partial<Record<ActivityType, string>> = {
   COMMITS_SYNCED: 'bg-violet-500',
   EVENT_SCHEDULED: 'bg-amber-500',
   MEMBER_JOINED: 'bg-pink-500',
+  TIMER_STARTED: 'bg-emerald-500',
+  TIMER_STOPPED: 'bg-teal-500',
+  TIME_LOGGED: 'bg-teal-500',
+  COMMENT_ADDED: 'bg-sky-500',
+  CHECKLIST_UPDATED: 'bg-emerald-500',
+  MEETING_STARTED: 'bg-red-500',
+  MEETING_SCHEDULED: 'bg-amber-500',
+};
+
+type View = 'overview' | 'board' | 'team' | 'time' | 'meetings' | 'activity';
+const VIEWS: { id: View; label: string; icon: React.ReactNode }[] = [
+  { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { id: 'board', label: 'Board', icon: <SquareKanban className="h-4 w-4" /> },
+  { id: 'team', label: 'Team live', icon: <Radio className="h-4 w-4" /> },
+  { id: 'time', label: 'Timesheets', icon: <Timer className="h-4 w-4" /> },
+  { id: 'meetings', label: 'Meetings', icon: <Video className="h-4 w-4" /> },
+  { id: 'activity', label: 'Activity', icon: <Activity className="h-4 w-4" /> },
+];
+
+/** Header pill: your running timer, always one click from stopping (Zeigarnik Effect). */
+const TimerPill: React.FC<{ timer: TimeEntry | null; onStop: () => void; onStart: () => void; onOpen: (id: string) => void; canWrite: boolean }> = ({
+  timer,
+  onStop,
+  onStart,
+  onOpen,
+  canWrite,
+}) => {
+  const now = useNow(1000);
+  if (!timer) {
+    return canWrite ? (
+      <button onClick={onStart} className={`${ghostBtn} !py-1.5`} title="Track time without a card">
+        <Play className="h-4 w-4 text-emerald-500" /> <span className="hidden sm:inline">Start timer</span>
+      </button>
+    ) : null;
+  }
+  return (
+    <div className="flex min-w-0 items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-1 pl-3 pr-1">
+      <span className="relative mr-1 flex h-2 w-2 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+      </span>
+      <button
+        onClick={() => timer.task && onOpen(timer.task.id)}
+        className="hidden min-w-0 max-w-[12rem] truncate text-sm font-medium text-emerald-800 hover:underline dark:text-emerald-200 md:block"
+      >
+        {timer.task?.title ?? timer.note ?? 'Focus session'}
+      </button>
+      <span className="ml-1 font-mono text-sm font-bold tabular-nums text-emerald-800 dark:text-emerald-200">{clock(entrySeconds(timer, now))}</span>
+      <button onClick={onStop} className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white transition hover:bg-emerald-600" aria-label="Stop timer" title="Stop timer">
+        <Pause className="h-4 w-4" />
+      </button>
+    </div>
+  );
 };
 const ROLE_STYLE: Record<string, string> = {
   OWNER: 'text-violet-600 dark:text-violet-300',
@@ -224,6 +289,41 @@ export const WorkspaceApp: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
   const [quickBusy, setQuickBusy] = useState(false);
+  const [activeTimers, setActiveTimers] = useState<TimeEntry[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [detailVersion, setDetailVersion] = useState<Record<string, number>>({});
+  const [pulseVersion, setPulseVersion] = useState(0);
+  const bumpPulse = () => setPulseVersion((v) => v + 1);
+
+  // View + open card live in the URL so they survive reloads and can be shared (Jakob's Law).
+  const [params, setParams] = useSearchParams();
+  const view = (VIEWS.some((v) => v.id === params.get('view')) ? params.get('view') : 'overview') as View;
+  const openTaskId = params.get('task');
+  const setView = (v: View) =>
+    setParams((p) => {
+      const n = new URLSearchParams(p);
+      if (v === 'overview') n.delete('view');
+      else n.set('view', v);
+      return n;
+    });
+  const openTask = useCallback(
+    (id: string) =>
+      setParams((p) => {
+        const n = new URLSearchParams(p);
+        n.set('task', id);
+        return n;
+      }),
+    [setParams]
+  );
+  const closeTask = useCallback(
+    () =>
+      setParams((p) => {
+        const n = new URLSearchParams(p);
+        n.delete('task');
+        return n;
+      }),
+    [setParams]
+  );
 
   const github = integrations.find((i) => i.provider === 'github');
   const google = integrations.find((i) => i.provider === 'google');
@@ -231,7 +331,6 @@ export const WorkspaceApp: React.FC = () => {
   const googleReady = !!google?.connected && !google.needsReconnect;
 
   // ---------- ui state ----------
-  const [taskViewMode, setTaskViewMode] = useState<'list' | 'board'>('board');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'ALL' | 'OVERDUE'>('ALL');
   const [modal, setModal] = useState<null | 'task' | 'commit' | 'repo' | 'event' | 'invite' | 'join' | 'create'>(null);
   const [month, setMonth] = useState(() => {
@@ -265,16 +364,20 @@ export const WorkspaceApp: React.FC = () => {
   const loadWorkspace = useCallback(async () => {
     if (!workspaceId) return;
     try {
-      const [t, c, a, m] = await Promise.all([
+      const [t, c, a, m, timers, mt] = await Promise.all([
         api.tasks(workspaceId),
         api.commits(workspaceId),
-        api.activities(workspaceId, 40),
+        api.activities(workspaceId, 100),
         api.members(workspaceId),
+        api.activeTimers(workspaceId),
+        api.meetings(workspaceId),
       ]);
       setTasks(t);
       setCommits(c);
       setActivities(a);
       setMembers(m);
+      setActiveTimers(timers);
+      setMeetings(mt);
     } catch (err) {
       fail(err);
     } finally {
@@ -332,9 +435,51 @@ export const WorkspaceApp: React.FC = () => {
           break;
         case 'TASK_UPDATED':
           setTasks((p) => upsert(p, msg.data as Task));
+          bumpPulse();
           break;
+        case 'TASK_MOVED': {
+          const { task, order } = msg.data as { task: Task; order: { id: string; position: number }[] };
+          const pos = new Map(order.map((o) => [o.id, o.position]));
+          setTasks((p) => upsert(p, task).map((t) => (pos.has(t.id) ? { ...t, position: pos.get(t.id)! } : t)));
+          bumpPulse();
+          break;
+        }
         case 'TASK_DELETED':
           setTasks((p) => p.filter((t) => t.id !== data.id));
+          bumpPulse();
+          break;
+        case 'TASK_DETAIL_CHANGED': {
+          const { taskId } = msg.data as { taskId: string };
+          setDetailVersion((v) => ({ ...v, [taskId]: (v[taskId] ?? 0) + 1 }));
+          break;
+        }
+        case 'TIMER_STARTED': {
+          const e = msg.data as TimeEntry;
+          setActiveTimers((p) => [...p.filter((x) => x.userId !== e.userId), e]);
+          bumpPulse();
+          break;
+        }
+        case 'TIMER_STOPPED': {
+          const e = msg.data as TimeEntry;
+          setActiveTimers((p) => p.filter((x) => x.id !== e.id));
+          bumpPulse();
+          break;
+        }
+        case 'TIME_ENTRY_CREATED':
+          bumpPulse();
+          break;
+        case 'TIME_ENTRY_DELETED':
+          setActiveTimers((p) => p.filter((x) => x.id !== data.id));
+          bumpPulse();
+          break;
+        case 'MEETING_CREATED': {
+          const m = msg.data as Meeting;
+          setMeetings((p) => upsert(p, m, false).sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
+          if (m.createdBy.id !== user?.id && isLive(m)) toast('success', `${m.createdBy.name} started "${m.title}". Join from the bar at the top.`);
+          break;
+        }
+        case 'MEETING_DELETED':
+          setMeetings((p) => p.filter((m) => m.id !== data.id));
           break;
         case 'COMMIT_CREATED':
           markFresh(data.id);
@@ -357,7 +502,7 @@ export const WorkspaceApp: React.FC = () => {
         }
         case 'ACTIVITY_RECORDED':
           markFresh(data.id);
-          setActivities((p) => upsert(p, msg.data as ActivityRecord).slice(0, 40));
+          setActivities((p) => upsert(p, msg.data as ActivityRecord).slice(0, 100));
           break;
       }
     },
@@ -411,6 +556,33 @@ export const WorkspaceApp: React.FC = () => {
       fail(err);
     }
   };
+
+  const myTimer = activeTimers.find((t) => t.userId === user?.id) ?? null;
+
+  const startTimer = useCallback(
+    async (taskId?: string | null, note?: string) => {
+      if (!workspaceId) return;
+      try {
+        const e = await api.startTimer(workspaceId, { taskId: taskId ?? null, note });
+        setActiveTimers((p) => [...p.filter((x) => x.userId !== e.userId), e]);
+      } catch (err) {
+        fail(err);
+      }
+    },
+    [workspaceId, fail]
+  );
+  const stopTimer = useCallback(async () => {
+    if (!workspaceId) return;
+    const snapshot = activeTimers;
+    setActiveTimers((p) => p.filter((x) => x.userId !== user?.id));
+    try {
+      const e = await api.stopTimer(workspaceId);
+      if (e) toast('success', `Nice work. ${clock(entrySeconds(e))} logged${e.task ? ` on "${e.task.title}"` : ''}.`);
+    } catch (err) {
+      setActiveTimers(snapshot);
+      fail(err);
+    }
+  }, [workspaceId, activeTimers, user?.id, fail, toast]);
 
   const deleteTask = async (id: string) => {
     if (!workspaceId) return;
@@ -498,8 +670,35 @@ export const WorkspaceApp: React.FC = () => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const onlineIds = new Set(presence.map((p) => p.userId));
+  const liveMeetings = meetings.filter((m) => isLive(m));
+
+  const ctx: WorkspaceCtx = {
+    workspace,
+    workspaceId: workspace.id,
+    user,
+    canWrite,
+    loading,
+    isAdmin,
+    tasks,
+    setTasks,
+    members,
+    presence,
+    activeTimers,
+    myTimer,
+    startTimer,
+    stopTimer,
+    meetings,
+    setMeetings,
+    integrations,
+    openTask,
+    fail,
+    toast,
+    detailVersion,
+    pulseVersion,
+  };
 
   return (
+    <WorkspaceContext.Provider value={ctx}>
     <div className="relative min-h-screen bg-white font-sans text-zinc-900 antialiased transition-colors duration-300 selection:bg-black selection:text-white dark:bg-black dark:text-zinc-100 dark:selection:bg-white dark:selection:text-black">
       <AppBackdrop />
 
@@ -522,31 +721,31 @@ export const WorkspaceApp: React.FC = () => {
             )}
 
             {/* Active Collaborator Presence Avatar Stack (Phase 2) */}
-            <div className="flex items-center gap-2 pl-2 border-l border-white/10">
-              <div className="flex -space-x-2 overflow-hidden">
+            <div className="hidden items-center gap-2 border-l border-black/10 pl-2 dark:border-white/10 md:flex">
+              <div className="flex -space-x-2">
                 {presence.slice(0, 4).map((p) => (
                   <div key={p.userId} className="relative group cursor-pointer">
                     <Avatar
                       name={p.name}
                       size="xs"
                       online
-                      className="ring-2 ring-black hover:scale-110 transition-transform"
+                      className="transition-transform hover:scale-110"
                     />
                     {/* Tooltip */}
                     <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none">
-                      <span className="rounded-lg border border-white/10 bg-zinc-900 px-2 py-1 text-[11px] font-medium text-white shadow-xl whitespace-nowrap">
+                      <span className="whitespace-nowrap rounded-lg border border-black/10 bg-white px-2 py-1 text-[11px] font-medium text-zinc-800 shadow-xl dark:border-white/10 dark:bg-zinc-900 dark:text-white">
                         {p.name} {p.typing ? '· typing…' : '· online'}
                       </span>
                     </div>
                   </div>
                 ))}
                 {presence.length > 4 && (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-semibold text-zinc-300 ring-2 ring-black">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-semibold text-zinc-700 ring-2 ring-white dark:bg-zinc-800 dark:text-zinc-300 dark:ring-black">
                     +{presence.length - 4}
                   </span>
                 )}
               </div>
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono text-zinc-400">
+              <span className="hidden items-center gap-1.5 font-mono text-xs text-zinc-500 xl:inline-flex">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 {presence.length} online
               </span>
@@ -555,6 +754,151 @@ export const WorkspaceApp: React.FC = () => {
         }
       />
 
+      {/* ================= VIEW TABS (5 views — Hick's / Miller's Law) ================= */}
+      <div className="sticky top-[65px] z-30 border-b border-black/10 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-black/75">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2 sm:px-6">
+          <nav className="thin-scroll -mb-px flex min-w-0 flex-1 gap-1 overflow-x-auto" aria-label="Workspace views">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id)}
+                aria-current={view === v.id ? 'page' : undefined}
+                className={`flex min-h-[40px] shrink-0 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition ${
+                  view === v.id
+                    ? 'bg-black text-white shadow-sm dark:bg-white dark:text-black'
+                    : 'text-zinc-500 hover:bg-black/[0.04] hover:text-black dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
+                }`}
+              >
+                {v.icon}
+                {v.label}
+                {v.id === 'team' && activeTimers.length > 0 && (
+                  <span className={`rounded-full px-1.5 text-[11px] font-bold tabular-nums ${view === v.id ? 'bg-emerald-400 text-black' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
+                    {activeTimers.length}
+                  </span>
+                )}
+                {v.id === 'meetings' && liveMeetings.length > 0 && <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />}
+              </button>
+            ))}
+          </nav>
+          {liveMeetings[0] && (
+            <a
+              href={liveMeetings[0].joinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden shrink-0 items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm font-semibold text-red-700 transition hover:bg-red-500/15 dark:text-red-300 md:flex"
+              title={`Join ${liveMeetings[0].title}`}
+            >
+              <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+              <span className="max-w-[10rem] truncate">{liveMeetings[0].title}</span>
+              <span className="font-bold">Join</span>
+            </a>
+          )}
+          <TimerPill timer={myTimer} canWrite={canWrite} onStop={() => void stopTimer()} onStart={() => void startTimer(null, 'Focus session')} onOpen={openTask} />
+        </div>
+      </div>
+
+      {view !== 'overview' ? (
+        <main className="relative z-10 mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+          {view === 'board' && <KanbanTaskBoard />}
+          {view === 'team' && <TeamView />}
+          {view === 'time' && <TimesheetView />}
+          {view === 'meetings' && <MeetingsView />}
+          {view === 'activity' && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
+              <Bento className="fade-up flex flex-col lg:col-span-7">
+                <ActivityTimelineStream activities={activities} activityDot={ACTIVITY_DOT} icon={<Activity className="h-5 w-5" />} tall />
+              </Bento>
+            {/* ================= GITHUB ================= */}
+            <Bento className="fade-up flex flex-col lg:col-span-5" style={{ animationDelay: '80ms' }}>
+              <BentoHeader
+                icon={<GithubIcon className="h-5 w-5" />}
+                title="GitHub activity"
+                subtitle={
+                  workspace.repoFullName ? (
+                    <a href={`https://github.com/${workspace.repoFullName}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono hover:text-black dark:hover:text-white">
+                      {workspace.repoFullName}
+                      <GitBranch className="ml-1 h-3.5 w-3.5" />
+                      {workspace.defaultBranch}
+                    </a>
+                  ) : (
+                    'No repository connected'
+                  )
+                }
+                action={
+                  <>
+                    {workspace.repoFullName && github?.connected && canWrite && (
+                      <button onClick={syncNow} disabled={syncing} className={`${ghostBtn} !px-2.5`} title="Pull latest commits from GitHub">
+                        <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button onClick={() => setModal('repo')} className={`${ghostBtn} !px-2.5`} title="Configure repository">
+                        <Settings className="h-4 w-4" />
+                      </button>
+                    )}
+                  </>
+                }
+              />
+
+              {workspace.repoFullName && (
+                <div className="mb-3 flex items-center justify-between gap-2 text-xs text-zinc-500">
+                  <span className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${github?.connected ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                    {github?.connected
+                      ? workspace.githubSyncedAt
+                        ? `Synced ${timeAgo(workspace.githubSyncedAt)} · auto-syncs every 3 min`
+                        : 'Waiting for first sync…'
+                      : 'Connect GitHub in your profile to sync real commits'}
+                  </span>
+                  {canWrite && (
+                    <button onClick={() => setModal('commit')} className="font-medium text-zinc-500 hover:text-black dark:hover:text-white">
+                      + Log manually
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="-mr-2 max-h-[calc(100vh-17rem)] flex-1 space-y-2 overflow-y-auto pr-2">
+                {commits.length === 0 ? (
+                  <div className={`${wellCls} flex flex-col items-center border-dashed px-6 py-10 text-center`}>
+                    <GitCommit className="mb-2 h-6 w-6 text-zinc-400" />
+                    <p className="mb-4 text-sm text-zinc-500">{workspace.repoFullName ? 'No commits yet.' : 'Connect a repository to stream its commits here.'}</p>
+                    {!workspace.repoFullName && isAdmin && (
+                      <button onClick={() => setModal('repo')} className={primaryBtn}>
+                        <Link2 className="h-4 w-4" /> Connect repository
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  commits.map((c) => {
+                    const Wrapper: React.ElementType = c.url ? 'a' : 'div';
+                    return (
+                      <Wrapper
+                        key={c.id}
+                        {...(c.url && { href: c.url, target: '_blank', rel: 'noreferrer' })}
+                        className={`${rowCls} group flex items-start gap-3 !p-3 ${freshIds.has(c.id) ? 'flash-in' : ''}`}
+                      >
+                        <Avatar name={c.author?.name ?? c.authorName} size="sm" className="!ring-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-2 text-sm font-medium text-black dark:text-zinc-100">{c.message}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+                            <span className="text-zinc-700 dark:text-zinc-300">{c.author?.name ?? c.authorName}</span>
+                            <span className="rounded-md bg-black/[0.04] px-1.5 font-mono text-zinc-600 dark:bg-white/[0.06] dark:text-zinc-300">{c.sha.slice(0, 7)}</span>
+                            <span>{timeAgo(c.committedAt)}</span>
+                            {c.source === 'MANUAL' && <span className="rounded-md border border-black/10 px-1.5 dark:border-white/10">manual</span>}
+                          </div>
+                        </div>
+                        {c.url && <ExternalLink className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover:text-zinc-600 dark:text-zinc-700 dark:group-hover:text-zinc-300" />}
+                      </Wrapper>
+                    );
+                  })
+                )}
+              </div>
+            </Bento>
+            </div>
+          )}
+        </main>
+      ) : (
       <main className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 gap-4 px-4 py-6 sm:px-6 lg:grid-cols-12 lg:gap-5">
         {/* ================= HERO ================= */}
         <Bento className="fade-up lg:col-span-8">
@@ -564,7 +908,7 @@ export const WorkspaceApp: React.FC = () => {
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {workspace.name}
               </span>
-              <h1 className="text-3xl font-extrabold tracking-tight text-black dark:text-white sm:text-4xl">
+              <h1 className="font-hand text-5xl font-bold leading-none text-black dark:text-white sm:text-6xl">
                 {greeting}, {user.name.split(' ')[0]}.
               </h1>
               <p className="mt-2 max-w-xl text-base text-zinc-500 dark:text-zinc-400">
@@ -574,6 +918,9 @@ export const WorkspaceApp: React.FC = () => {
                   ? `${inProgress} in progress and ${done} done. Keep the momentum going.`
                   : 'Your board is fresh. Add the first task to get your team moving.'}
               </p>
+              <HandNote className="mt-2 text-xl text-emerald-600 dark:text-emerald-400" rotate={-2}>
+                {!total ? 'start with one card ✎' : total === done ? 'all done — ship it! 🎉' : `${total - done} to go — you've got this`}
+              </HandNote>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
@@ -618,8 +965,9 @@ export const WorkspaceApp: React.FC = () => {
         <Bento className="fade-up flex flex-col lg:col-span-4" style={{ animationDelay: '60ms' }}>
           <BentoHeader icon={<Flame className="h-5 w-5" />} title="Sprint health" subtitle="Completion vs. overdue work" />
           <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row lg:flex-col xl:flex-row">
-            <RingGauge value={healthScore} tone={healthTone}>
-              <span className="text-3xl font-extrabold tabular-nums text-black dark:text-white">{healthScore}%</span>
+            {/* keyed on loading so the 0 → score sweep plays once, on real data */}
+            <RingGauge key={loading ? 'loading' : 'ready'} value={loading ? 0 : healthScore} tone={healthTone}>
+              <span className="text-3xl font-extrabold text-black dark:text-white">{loading ? '–' : <CountUp value={healthScore} suffix="%" />}</span>
               <span className="text-xs font-medium text-zinc-500">{healthTone === 'good' ? 'Healthy' : healthTone === 'warn' ? 'At risk' : 'Critical'}</span>
             </RingGauge>
             <dl className="w-full max-w-[12rem] space-y-3 text-sm">
@@ -650,27 +998,21 @@ export const WorkspaceApp: React.FC = () => {
             subtitle={`${filteredTasks.length} of ${tasks.length} tasks`}
             action={
               <div className="flex items-center gap-2">
-                <div className="flex items-center rounded-xl border border-white/10 bg-black/60 p-0.5 text-xs">
-                  <button
-                    onClick={() => setTaskViewMode('board')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition ${taskViewMode === 'board' ? 'bg-white/15 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
-                  >
-                    Board
+                {canWrite && (
+                  <button onClick={() => setModal('task')} className={`${ghostBtn} hidden sm:inline-flex`}>
+                    <Plus className="h-4 w-4" /> Add
                   </button>
-                  <button
-                    onClick={() => setTaskViewMode('list')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition ${taskViewMode === 'list' ? 'bg-white/15 text-white shadow-sm' : 'text-zinc-400 hover:text-white'}`}
-                  >
-                    List
-                  </button>
-                </div>
+                )}
+                <button onClick={() => setView('board')} className={primaryBtn}>
+                  <SquareKanban className="h-4 w-4" /> Open board
+                </button>
               </div>
             }
           />
 
           <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-2xl border border-black/10 bg-zinc-100 p-1 text-sm dark:border-white/10 dark:bg-black/60">
             <Filter className="ml-2 mr-1 h-4 w-4 text-zinc-400" />
-            {(['ALL', 'TODO', 'IN_PROGRESS', 'DONE', 'OVERDUE'] as const).map((f) => {
+            {(['ALL', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'OVERDUE'] as const).map((f) => {
               const count =
                 f === 'ALL' ? tasks.length : f === 'OVERDUE' ? overdue : tasks.filter((t) => t.status === f).length;
               return (
@@ -690,10 +1032,7 @@ export const WorkspaceApp: React.FC = () => {
             })}
           </div>
 
-          {taskViewMode === 'board' ? (
-            <KanbanTaskBoard tasks={tasks} updateStatus={updateStatus} canWrite={canWrite} />
-          ) : (
-            <div className="-mr-2 max-h-[46rem] flex-1 space-y-2.5 overflow-y-auto pr-2">
+          <div className="-mr-2 max-h-[46rem] flex-1 space-y-2.5 overflow-y-auto pr-2">
             {loading ? (
               [0, 1, 2].map((i) => <div key={i} className={`${rowCls} h-28 animate-pulse`} />)
             ) : filteredTasks.length === 0 ? (
@@ -729,9 +1068,17 @@ export const WorkspaceApp: React.FC = () => {
                     </button>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className={`text-[0.95rem] font-semibold leading-snug ${isDone ? 'text-zinc-400 line-through' : 'text-black dark:text-zinc-100'}`}>
+                        <button
+                          onClick={() => openTask(task.id)}
+                          className={`text-left text-[0.95rem] font-semibold leading-snug hover:underline ${isDone ? 'text-zinc-400 line-through' : 'text-black dark:text-zinc-100'}`}
+                        >
                           {task.title}
-                        </h3>
+                          {activeTimers.some((a) => a.taskId === task.id) && (
+                            <span className="ml-2 inline-flex translate-y-[-1px] items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-emerald-700 no-underline dark:text-emerald-300">
+                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> live
+                            </span>
+                          )}
+                        </button>
                         <div className="flex shrink-0 items-center gap-1.5">
                           <span className={`rounded-lg border px-2 py-0.5 text-xs font-semibold ${PRIORITY_STYLE[task.priority]}`}>
                             {task.priority[0] + task.priority.slice(1).toLowerCase()}
@@ -771,6 +1118,7 @@ export const WorkspaceApp: React.FC = () => {
                         >
                           <option value="TODO">To do</option>
                           <option value="IN_PROGRESS">In progress</option>
+                          <option value="REVIEW">Review</option>
                           <option value="DONE">Done</option>
                         </select>
                       </div>
@@ -780,7 +1128,6 @@ export const WorkspaceApp: React.FC = () => {
               })
             )}
           </div>
-          )}
 
           {/* Quick add + progress footer — anchors the tile when there are few tasks */}
           <div className="mt-auto space-y-4 pt-4">
@@ -980,100 +1327,10 @@ export const WorkspaceApp: React.FC = () => {
             })}
           </ul>
         </Bento>
-
-        {/* ================= GITHUB ================= */}
-        <Bento className="fade-up flex flex-col lg:col-span-7" style={{ animationDelay: '300ms' }}>
-          <BentoHeader
-            icon={<GithubIcon className="h-5 w-5" />}
-            title="GitHub activity"
-            subtitle={
-              workspace.repoFullName ? (
-                <a href={`https://github.com/${workspace.repoFullName}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono hover:text-black dark:hover:text-white">
-                  {workspace.repoFullName}
-                  <GitBranch className="ml-1 h-3.5 w-3.5" />
-                  {workspace.defaultBranch}
-                </a>
-              ) : (
-                'No repository connected'
-              )
-            }
-            action={
-              <>
-                {workspace.repoFullName && github?.connected && canWrite && (
-                  <button onClick={syncNow} disabled={syncing} className={`${ghostBtn} !px-2.5`} title="Pull latest commits from GitHub">
-                    <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                  </button>
-                )}
-                {isAdmin && (
-                  <button onClick={() => setModal('repo')} className={`${ghostBtn} !px-2.5`} title="Configure repository">
-                    <Settings className="h-4 w-4" />
-                  </button>
-                )}
-              </>
-            }
-          />
-
-          {workspace.repoFullName && (
-            <div className="mb-3 flex items-center justify-between gap-2 text-xs text-zinc-500">
-              <span className="flex items-center gap-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${github?.connected ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
-                {github?.connected
-                  ? workspace.githubSyncedAt
-                    ? `Synced ${timeAgo(workspace.githubSyncedAt)} · auto-syncs every 3 min`
-                    : 'Waiting for first sync…'
-                  : 'Connect GitHub in your profile to sync real commits'}
-              </span>
-              {canWrite && (
-                <button onClick={() => setModal('commit')} className="font-medium text-zinc-500 hover:text-black dark:hover:text-white">
-                  + Log manually
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="-mr-2 max-h-[26rem] flex-1 space-y-2 overflow-y-auto pr-2">
-            {commits.length === 0 ? (
-              <div className={`${wellCls} flex flex-col items-center border-dashed px-6 py-10 text-center`}>
-                <GitCommit className="mb-2 h-6 w-6 text-zinc-400" />
-                <p className="mb-4 text-sm text-zinc-500">{workspace.repoFullName ? 'No commits yet.' : 'Connect a repository to stream its commits here.'}</p>
-                {!workspace.repoFullName && isAdmin && (
-                  <button onClick={() => setModal('repo')} className={primaryBtn}>
-                    <Link2 className="h-4 w-4" /> Connect repository
-                  </button>
-                )}
-              </div>
-            ) : (
-              commits.map((c) => {
-                const Wrapper: React.ElementType = c.url ? 'a' : 'div';
-                return (
-                  <Wrapper
-                    key={c.id}
-                    {...(c.url && { href: c.url, target: '_blank', rel: 'noreferrer' })}
-                    className={`${rowCls} group flex items-start gap-3 !p-3 ${freshIds.has(c.id) ? 'flash-in' : ''}`}
-                  >
-                    <Avatar name={c.author?.name ?? c.authorName} size="sm" className="!ring-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-medium text-black dark:text-zinc-100">{c.message}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
-                        <span className="text-zinc-700 dark:text-zinc-300">{c.author?.name ?? c.authorName}</span>
-                        <span className="rounded-md bg-black/[0.04] px-1.5 font-mono text-zinc-600 dark:bg-white/[0.06] dark:text-zinc-300">{c.sha.slice(0, 7)}</span>
-                        <span>{timeAgo(c.committedAt)}</span>
-                        {c.source === 'MANUAL' && <span className="rounded-md border border-black/10 px-1.5 dark:border-white/10">manual</span>}
-                      </div>
-                    </div>
-                    {c.url && <ExternalLink className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover:text-zinc-600 dark:text-zinc-700 dark:group-hover:text-zinc-300" />}
-                  </Wrapper>
-                );
-              })
-            )}
-          </div>
-        </Bento>
-
-        {/* ================= UNIFIED ACTIVITY TIMELINE STREAM (PHASE 3) ================= */}
-        <Bento className="fade-up flex flex-col lg:col-span-5" style={{ animationDelay: '360ms' }}>
-          <ActivityTimelineStream activities={activities} activityDot={ACTIVITY_DOT} icon={<Activity className="h-5 w-5" />} />
-        </Bento>
       </main>
+      )}
+
+      {openTaskId && tasks.some((t) => t.id === openTaskId) && <TaskDrawer key={openTaskId} taskId={openTaskId} onClose={closeTask} />}
 
       {/* ================= MODALS ================= */}
       {modal === 'task' && (
@@ -1190,6 +1447,7 @@ export const WorkspaceApp: React.FC = () => {
         />
       )}
     </div>
+    </WorkspaceContext.Provider>
   );
 };
 

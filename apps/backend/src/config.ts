@@ -30,7 +30,14 @@ export const config = {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
   },
+  /** Enables the one-click "Try the live demo" sign-in (POST /auth/demo). */
+  demoLogin: process.env.DEMO_LOGIN === 'true',
+  zoom: {
+    clientId: process.env.ZOOM_CLIENT_ID || '',
+    clientSecret: process.env.ZOOM_CLIENT_SECRET || '',
+  },
 };
 
 export const isGithubConfigured = () => !!(config.github.clientId && config.github.clientSecret);
 export const isGoogleConfigured = () => !!(config.google.clientId && config.google.clientSecret);
+export const isZoomConfigured = () => !!(config.zoom.clientId && config.zoom.clientSecret);
